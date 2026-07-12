@@ -683,7 +683,7 @@ then re-run `cluster-bootstrap.sh`.
 
 ### n8n workflow engine notes
 
-- n8n DB is restored from a known-good workflow tarball (`infra/terraform-subdomain/files/n8n-pg-dumpall-*.sql.tar.gz`). Cloud-init expands it to `$HOME/*.sql` during first boot; `scripts/restore-n8n-dumpall.sh` loads it into the CNPG Postgres cluster.
+- n8n DB is restored from the known-good workflow dump committed at `infra/terraform-subdomain/files/n8n-pg-dumpall.sql`; `scripts/restore-n8n-dumpall.sh` reads it from the repo clone and loads it into the CNPG Postgres cluster.
 - When restoring from a `pg_dumpall` dump, `DROP DATABASE n8n WITH (FORCE)` first — the dump has no `--clean` clause so old artifacts survive if you don't. `CREATE ROLE postgres/streaming_replica` lines error harmlessly (CNPG-managed roles already exist). Re-assert `ALTER ROLE n8n PASSWORD 'rdf#rocks'` + public grants after.
 - The n8n **Configuration** workflow's `poolPartyProjectId` and GraphDB paths must be updated for your deployment or every ingest workflow fails.
 

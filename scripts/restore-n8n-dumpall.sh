@@ -6,7 +6,7 @@
 # initdb'd on every build, so there is nothing worth backing up: we just drop
 # any database that's there and load the seed. The seed is the plain-SQL
 # pg_dumpall that lives in the repo at
-#   $HOME/gsb/infra/terraform-subdomain/files/n8n-pg-dumpall-*.sql
+#   $HOME/gsb/infra/terraform-subdomain/files/n8n-pg-dumpall.sql
 #
 # Gated: if no matching file is present, this is a no-op (exit 0), so it
 # is safe to call unconditionally at the end of deploy-stack.sh.

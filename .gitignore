@@ -33,9 +33,11 @@ crash.log
 # ...except the umbrella's own vendored deps, which ARE committed intentionally
 !charts/graphwise-stack/charts/*.tgz
 
-# --- Raw n8n Postgres dump (runtime artifact expanded from the shipped
-#     *.sql.tar.gz at cloud-init; never the tracked form) ---
+# --- n8n Postgres dumps: only the canonical shipped seed is tracked
+#     (restore-n8n-dumpall.sh reads it from the clone); dated/scratch
+#     dumps stay local ---
 infra/terraform-subdomain/files/*.sql
+!infra/terraform-subdomain/files/n8n-pg-dumpall.sql
 
 # Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit
 refine/*.zip

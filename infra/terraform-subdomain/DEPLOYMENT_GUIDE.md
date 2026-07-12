@@ -39,6 +39,7 @@ that stands up an entire Graphwise AI Suite.
   - [Read the bootstrap log](#read-the-bootstrap-log)
   - [Get Logs From Any Pod](#get-logs-from-any-pod)
   - [Get Kubernetes Events](#get-kubernetes-events)
+  - [Orphaned IAM Role After a Manual Delete](#orphaned-iam-role-after-a-manual-delete-laptopconsole)
   - [TLS Certificate Issues](#tls-certificate-issues--forcing-lets-encrypt-to-re-issue)
 - [Kubernetes Dashboard and Grafana](#kubernetes-dashboard-and-grafana)
 
@@ -123,8 +124,7 @@ terraform-subdomain/               (shipped as graphwise-stack-builder-kit-v2.0.
 ├── terraform.tfstate.backup       [git-ignored] previous state (written on each apply)
 │
 ├── files/
-│   ├── n8n-pg-dumpall.sql.tar.gz   ← committed — known-good n8n workflow DB backup
-│   ├── n8n-pg-dumpall.sql           [git-ignored] raw uncompressed dump (generated locally)
+│   ├── n8n-pg-dumpall.sql           ← committed — known-good n8n workflow DB seed (restore-n8n-dumpall.sh loads it)
 │   ├── Configuration.js                        [git-ignored] n8n Configuration node — fill in per-deploy paths
 │   └── licenses/
 │       ├── poolparty.key                       [git-ignored] PoolParty license (you supply)
@@ -840,6 +840,55 @@ tamp'
 ```
 
 Events explain why a pod is `Pending`, `CrashLoopBackOff`, or stuck in `Init`.
+
+### Orphaned IAM Role After a Manual Delete  *(laptop/console)*
+
+Always tear down with `terraform destroy` (see [Stack Tear Down](#stack-tear-down--laptop)).
+If a stack was instead deleted manually — terminating the EC2 in the AWS
+Console, or deleting individual resources with the CLI — the stack's IAM role
+and instance profile are usually left behind, and trying to delete the role
+fails with:
+
+```
+Cannot delete entity, must remove roles from instance profile first.
+```
+
+Terraform creates the role *inside* an instance profile (both named
+`graphwise-stack-<subdomain>-ec2-*`), and IAM refuses to delete a role that is
+still listed in a profile. Clean up in this order:
+
+```bash
+SUB=<subdomain>   # e.g. kstroker
+
+# 1. Confirm nothing is still using the profile (must print nothing)
+aws ec2 describe-instances \
+  --filters "Name=iam-instance-profile.arn,Values=arn:aws:iam::<account-id>:instance-profile/graphwise-stack-${SUB}-ec2-profile" \
+  --query 'Reservations[].Instances[].[InstanceId,State.Name]' --output text
+
+# 2. Delete any inline policies still on the role (e.g. the Route 53 policy)
+aws iam list-role-policies --role-name graphwise-stack-${SUB}-ec2-role --output text
+aws iam delete-role-policy --role-name graphwise-stack-${SUB}-ec2-role --policy-name <name-from-above>
+
+# 3. Detach the role from the profile, then delete both
+aws iam remove-role-from-instance-profile \
+  --instance-profile-name graphwise-stack-${SUB}-ec2-profile \
+  --role-name graphwise-stack-${SUB}-ec2-role
+aws iam delete-role --role-name graphwise-stack-${SUB}-ec2-role
+aws iam delete-instance-profile --instance-profile-name graphwise-stack-${SUB}-ec2-profile
+```
+
+Console equivalent: IAM → Instance profiles is not exposed in the Console, so
+step 3 must be done with the CLI — this is exactly why the Console's "Delete
+role" button fails on these roles.
+
+> **Terraform state is now out of sync.** The `terraform.tfstate` in that
+> subdomain's working folder still records the role, profile, EC2, and security
+> group. Before the next `terraform apply` for the same subdomain, run
+> `terraform destroy` anyway (it reconciles: already-gone resources are
+> refreshed away) or remove the stale entries with `terraform state rm`.
+> Also sweep for other manual-delete leftovers: the security group, the EIP
+> *association* (the EIP itself is pre-allocated and should stay), and the
+> Route 53 records.
 
 ## TLS Certificate Issues — Forcing Let's Encrypt to Re-issue
 
