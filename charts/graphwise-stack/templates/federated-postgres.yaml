@@ -1,0 +1,50 @@
+{{- if .Values.federatedPostgres.enabled }}
+{{/*
+Standalone Postgres for the federated GraphDB demo. Empty on first
+boot; CNPG auto-creates the ClusterIP Service
+federated-postgres-rw in the federated namespace. In-cluster access
+only — no Ingress.
+*/}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: federated-postgres-superuser
+  namespace: {{ .Values.federatedPostgres.namespace }}
+  labels:
+    {{- include "graphwise-stack.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  password: {{ .Values.federatedPostgres.superuserPassword | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: federated-postgres-user
+  namespace: {{ .Values.federatedPostgres.namespace }}
+  labels:
+    {{- include "graphwise-stack.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.federatedPostgres.appUsername | quote }}
+  password: {{ .Values.federatedPostgres.appPassword | quote }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.federatedPostgres.name }}
+  namespace: {{ .Values.federatedPostgres.namespace }}
+  labels:
+    {{- include "graphwise-stack.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.federatedPostgres.instances }}
+  storage:
+    size: {{ .Values.federatedPostgres.storage }}
+  superuserSecret:
+    name: federated-postgres-superuser
+  bootstrap:
+    initdb:
+      database: {{ .Values.federatedPostgres.database }}
+      owner: {{ .Values.federatedPostgres.appUsername }}
+      secret:
+        name: federated-postgres-user
+{{- end }}

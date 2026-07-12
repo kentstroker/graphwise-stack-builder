@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<!--
+  Graphwise Stack — Console landing page.
+  Served by ingress-nginx at https://<sub>.<base>/ (the Console
+  Ingress targets the apex hostname).
+
+  Rendered through Helm `tpl` at install time (see templates/configmap.yaml).
+  Variables come from charts/console/values.yaml — most importantly
+  .Values.credentials.* (every login string shown on cards) and
+  .Values.global.subdomain / .Values.global.baseDomain (apex hostname).
+
+  The JS at the bottom is a safety net: if the user reaches the page
+  via a different apex than what was rendered (proxy, internal LB, etc.),
+  links self-rewrite to whatever hostname window.location.hostname
+  reports.
+
+  Authoritative reference for every credential lives in CONSOLE-GUIDE.md
+  → "Credentials reference".
+
+  Author: Kent Stroker
+-->
+{{- $apex := printf "%s.%s" .Values.global.subdomain .Values.global.baseDomain -}}
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graphwise AI Suite Demo Stack Console</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+  background: #f5f6f8; color: #1d1d1f; margin: 0; line-height: 1.5;
+}
+header {
+  background: linear-gradient(135deg, #0a2540 0%, #134e89 100%);
+  color: white; padding: 2rem 1.5rem; border-bottom: 4px solid #3b82f6;
+}
+header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; letter-spacing: -0.01em; }
+header p { margin: 0; color: #a8b8d0; font-size: 0.95rem; }
+header code {
+  background: rgba(255,255,255,0.15); padding: 0.1rem 0.5rem; border-radius: 4px;
+  color: #ffd27a; font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+main { max-width: 1240px; margin: 0 auto; padding: 1.5rem; }
+section { margin-bottom: 2.25rem; }
+section h2 {
+  font-size: 0.85rem; font-weight: 700; color: #6b7280;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin: 0 0 0.75rem; padding-bottom: 0.4rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.grid {
+  display: grid; gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.card {
+  display: block; background: white; padding: 0.9rem 1rem;
+  border-radius: 8px; border: 1px solid #e5e7eb;
+  text-decoration: none; color: inherit;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.card:hover {
+  border-color: #3b82f6; box-shadow: 0 4px 14px rgba(59,130,246,0.15);
+  transform: translateY(-1px);
+}
+.card.primary { background: #eef6ff; border-color: #3b82f6; }
+.card.primary:hover { border-color: #1d4ed8; }
+.card .title { font-weight: 600; color: #0a2540; margin-bottom: 0.2rem; }
+.card .desc { font-size: 0.88rem; color: #4b5563; margin-bottom: 0.35rem; }
+.card .auth {
+  font-size: 0.76rem; color: #3b82f6;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+footer {
+  max-width: 1240px; margin: 0 auto; padding: 1rem 1.5rem;
+  color: #6b7280; font-size: 0.85rem; text-align: center;
+}
+footer hr {
+  border: none; border-top: 1px solid #e5e7eb; margin: 0 0 1rem;
+}
+header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.header-main { min-width: 0; }
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem; flex-shrink: 0; }
+.mode-toggle {
+  display: inline-flex; background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.25); border-radius: 999px; overflow: hidden;
+}
+.mode-toggle button {
+  appearance: none; border: 0; background: transparent; color: #cdd9ec;
+  font: inherit; font-size: 0.8rem; padding: 0.3rem 0.85rem; cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.mode-toggle button.active { background: #ffffff; color: #0a2540; font-weight: 600; }
+body.demo-mode .card:not([data-demo]) { display: none; }
+body.demo-mode section:not([data-demo-section]) { display: none; }
+.cust-logo { max-height: 56px; max-width: 220px; object-fit: contain; }
+.gw-logo { text-align: center; margin: 1.75rem 0 0.75rem; }
+.gw-logo img { max-height: 64px; max-width: 300px; object-fit: contain; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-main">
+    <h1>Graphwise AI Suite Stack Console</h1>
+    <p>Server: <code id="host">{{ $apex }}</code> &middot; Each app lives at its own subdomain. Every link below is HTTPS via ingress-nginx + Let's Encrypt.</p>
+  </div>
+  <div class="header-right">
+    <div class="mode-toggle" role="group" aria-label="Console mode">
+      <button type="button" data-mode="full">Full Stack</button>
+      <button type="button" data-mode="demo">Demo</button>
+    </div>
+    {{- if .Values.branding.logoDataUri }}
+    <img class="cust-logo" src="{{ .Values.branding.logoDataUri }}" alt="{{ .Values.branding.logoAlt | default "Customer logo" | replace "&" "&amp;" | replace "<" "&lt;" | replace ">" "&gt;" | replace "\"" "&quot;" }}">
+    {{- end }}
+  </div>
+</header>
+
+<main>
+
+<div class="gw-logo"><img src="graphwise.png" alt="Graphwise"></div>
+
+<section data-demo-section>
+  <h2>Start here</h2>
+  <div class="grid">
+    <a class="card primary" data-demo href="https://poolparty.{{ $apex }}/PoolParty/">
+      <div class="title">Graph Modeling</div>
+      <div class="desc">Main authoring UI &mdash; taxonomies, concepts, projects</div>
+      <div class="auth">SSO &middot; {{ .Values.credentials.poolparty }}</div>
+    </a>
+    <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/">
+      <div class="title">GraphRAG Chatbot</div>
+      <div class="desc">Conversational interface backed by your taxonomy</div>
+      <div class="auth">SSO &middot; {{ .Values.credentials.graphragSso }}</div>
+    </a>
+    <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/graphrag/workflows/">
+      <div class="title">Workflows (n8n)</div>
+      <div class="desc">Pipeline editor; first visitor sets the owner account</div>
+      <div class="auth">{{ .Values.credentials.n8n }}</div>
+    </a>
+    <a class="card primary" href="https://graphdb-projects.{{ $apex }}/">
+      <div class="title">GraphDB &mdash; projects</div>
+      <div class="desc">Your data. Load repositories, run SPARQL here.</div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>Administration</h2>
+  <div class="grid">
+    <a class="card" href="https://auth.{{ $apex }}/admin/">
+      <div class="title">Keycloak Admin Console</div>
+      <div class="desc">Manage realms, users, clients, client secrets</div>
+      <div class="auth">{{ .Values.credentials.keycloakAdmin }}</div>
+    </a>
+  </div>
+</section>
+
+<section data-demo-section>
+  <h2>Graph Modeling Suite</h2>
+  <div class="grid">
+    <a class="card" href="https://poolparty.{{ $apex }}/GraphSearch/">
+      <div class="title">GraphSearch</div>
+      <div class="desc">Search frontend over Graph Modeling content</div>
+      <div class="auth">SSO &middot; same user as Graph Modeling</div>
+    </a>
+    <a class="card" data-demo href="https://poolparty.{{ $apex }}/extractor/">
+      <div class="title">Extractor (REST)</div>
+      <div class="desc">Concept-extraction REST API &mdash; no UI</div>
+      <div class="auth">SSO bearer token required</div>
+    </a>
+    <a class="card" href="https://semantic-workbench.{{ $apex }}/SemanticWorkbench/">
+      <div class="title">Semantic Workbench</div>
+      <div class="desc">RDF modeling, ontology editor, SHACL, SPARQL</div>
+      <div class="auth">SSO &middot; same user as Graph Modeling</div>
+    </a>
+    <a class="card" href="https://adf.{{ $apex }}/ADF/">
+      <div class="title">Advanced Data Fabric (ADF)</div>
+      <div class="desc">Data integration / enrichment platform</div>
+      <div class="auth">SSO &middot; same user as Graph Modeling</div>
+    </a>
+    <a class="card" href="https://graphviews.{{ $apex }}/GraphViews/">
+      <div class="title">GraphViews</div>
+      <div class="desc">Visualization on top of Graph Modeling projects</div>
+      <div class="auth">direct &middot; {{ .Values.credentials.poolparty }}</div>
+    </a>
+    <a class="card" href="https://unifiedviews.{{ $apex }}/UnifiedViews/">
+      <div class="title">UnifiedViews</div>
+      <div class="desc">ETL / pipeline platform (own login system)</div>
+      <div class="auth">default &middot; {{ .Values.credentials.unifiedviews }}</div>
+    </a>
+    <a class="card" href="https://refine.{{ $apex }}/">
+      <div class="title">Ontotext Refine</div>
+      <div class="desc">CSV/JSON/Excel &rarr; RDF cleaning &amp; mapping (v1.2)</div>
+      <div class="auth">no auth &middot; CIDR-restricted (admin_cidr)</div>
+      <div class="hint">In Refine UI &rarr; Settings &rarr; Connect to GraphDB, paste:<br>
+        <code>http://graphwise-stack-graphdb-projects:7200</code></div>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>GraphRAG (AI / RAG)</h2>
+  <div class="grid">
+    <a class="card" href="https://graphrag.{{ $apex }}/">
+      <div class="title">Chatbot</div>
+      <div class="desc">Web UI for the conversational agent</div>
+      <div class="auth">SSO &middot; {{ .Values.credentials.graphragSso }}</div>
+    </a>
+    <a class="card" href="https://graphrag.{{ $apex }}/conversations/">
+      <div class="title">Conversation API</div>
+      <div class="desc">Spring backend for chatbot &middot; OIDC bearer required</div>
+      <div class="auth">service-to-service OIDC</div>
+    </a>
+  </div>
+</section>
+
+<section data-demo-section>
+  <h2>Data Stores (Basic Auth: {{ .Values.credentials.basicAuth }})</h2>
+  <div class="grid">
+    <a class="card" href="https://graphdb.{{ $apex }}/">
+      <div class="title">GraphDB &mdash; embedded</div>
+      <div class="desc">Graph Modeling's backing store. <strong>Do not load your own data here.</strong></div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    </a>
+    <a class="card" data-demo href="https://graphdb-projects.{{ $apex }}/">
+      <div class="title">GraphDB &mdash; projects</div>
+      <div class="desc">Your data. Load repositories, run SPARQL here.</div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    </a>
+    <div class="card">
+      <div class="title">Elasticsearch</div>
+      <div class="desc">In-cluster vector + full-text store (poolparty-elasticsearch). Backs PoolParty search and the <code>graphrag-vectors</code> index. No Ingress &mdash; API only on <code>:19200</code> from CIDR-allowlisted hosts, or via <code>kubectl port-forward -n graphwise svc/graphwise-stack-poolparty-elasticsearch 9200:9200</code>.</div>
+      <div class="auth">no auth &middot; CIDR-restricted (elasticsearch_cidrs)</div>
+    </div>
+    <div class="card">
+      <div class="title">Federated &mdash; Postgres</div>
+      <div class="desc">Standalone Postgres (CNPG) in the <code>federated</code> namespace for the federated GraphDB demo. No Ingress &mdash; in-cluster only at <code>federated-postgres-rw.federated.svc:5432</code>, or via <code>kubectl port-forward -n federated svc/federated-postgres-rw 5432:5432</code>.</div>
+      <div class="auth">user <code>federated</code> &middot; rdf#rocks</div>
+    </div>
+    <div class="card">
+      <div class="title">Federated &mdash; MySQL</div>
+      <div class="desc">Standalone MySQL in the <code>federated</code> namespace for the federated GraphDB demo. No Ingress &mdash; in-cluster only at <code>federated-mysql.federated.svc:3306</code>, or via <code>kubectl port-forward -n federated svc/federated-mysql 3306:3306</code>.</div>
+      <div class="auth">user <code>federated</code> &middot; rdf#rocks</div>
+    </div>
+    <a class="card" href="https://rdf4j.{{ $apex }}/rdf4j-workbench/">
+      <div class="title">RDF4J Workbench</div>
+      <div class="desc">Standalone RDF workbench; also backs UnifiedViews internally.</div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>Observability &amp; Monitoring</h2>
+  <div class="grid">
+    <a class="card" href="https://dashboard.{{ $apex }}/">
+      <div class="title">Kubernetes Dashboard</div>
+      <div class="desc">Cluster + workload introspection. Upload <code>~/dashboard-kubeconfig.yaml</code> at the login screen.</div>
+      <div class="auth">{{ .Values.credentials.dashboard }}</div>
+    </a>
+    <a class="card" href="https://prometheus.{{ $apex }}/">
+      <div class="title">Prometheus</div>
+      <div class="desc">Raw metrics + alerts UI. Time series for everything in the cluster.</div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    </a>
+    <a class="card" href="https://grafana.{{ $apex }}/">
+      <div class="title">Grafana</div>
+      <div class="desc">Pre-built K8s dashboards (~30 ship with the chart). Build your own here.</div>
+      <div class="auth">{{ .Values.credentials.grafana }}</div>
+    </a>
+  </div>
+</section>
+
+<section>
+  <h2>Useful config endpoints</h2>
+  <div class="grid">
+    <a class="card" href="https://auth.{{ $apex }}/realms/master/.well-known/openid-configuration">
+      <div class="title">OIDC &middot; master realm</div>
+      <div class="desc">Keycloak discovery for the admin realm</div>
+    </a>
+    <a class="card" href="https://auth.{{ $apex }}/realms/poolparty/.well-known/openid-configuration">
+      <div class="title">OIDC &middot; poolparty realm</div>
+      <div class="desc">Consumed by Graph Modeling / ADF / Semantic Workbench</div>
+    </a>
+    <a class="card" href="https://auth.{{ $apex }}/realms/graphrag/.well-known/openid-configuration">
+      <div class="title">OIDC &middot; graphrag realm</div>
+      <div class="desc">Consumed by GraphRAG chatbot / conversation</div>
+    </a>
+    <a class="card" href="https://graphdb.{{ $apex }}/rest/repositories">
+      <div class="title">Embedded GraphDB &middot; repo list</div>
+      <div class="desc">JSON inventory of repositories (basic auth)</div>
+    </a>
+    <a class="card" href="https://graphdb-projects.{{ $apex }}/rest/repositories">
+      <div class="title">Projects GraphDB &middot; repo list</div>
+      <div class="desc">JSON inventory of repositories (basic auth)</div>
+    </a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <hr>
+  <p>&copy; 2026 Graphwise. All rights reserved.</p>
+</footer>
+
+<script>
+  // Self-adapting links: rewrite the rendered apex to whatever apex
+  // the user actually reached this page at. Helm tpl already filled
+  // in the apex at install time, but if the page is reached via a
+  // different hostname (proxy, internal LB rebrand, etc.), this keeps
+  // links working without re-rendering the ConfigMap.
+  document.addEventListener('DOMContentLoaded', function () {
+    var host = window.location.hostname;
+    if (!host) return;
+    var renderedApex = '{{ $apex }}';
+    if (host === renderedApex) return;
+    document.querySelectorAll('a[href]').forEach(function (a) {
+      a.href = a.href.split(renderedApex).join(host);
+    });
+    var hostEl = document.getElementById('host');
+    if (hostEl) hostEl.textContent = host;
+  });
+
+  // Full Stack <-> Demo Mode toggle. Separate DOMContentLoaded listener on
+  // purpose: the apex-rewrite listener above returns early in some paths,
+  // which would skip this if appended to it.
+  document.addEventListener('DOMContentLoaded', function () {
+    var KEY = 'gw-console-mode';
+    function applyMode(mode) {
+      document.body.classList.toggle('demo-mode', mode === 'demo');
+      document.querySelectorAll('.mode-toggle button').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.mode === mode);
+      });
+    }
+    applyMode(localStorage.getItem(KEY) || 'full');
+    document.querySelectorAll('.mode-toggle button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        localStorage.setItem(KEY, b.dataset.mode);
+        applyMode(b.dataset.mode);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>

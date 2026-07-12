@@ -1,0 +1,138 @@
+# Graphwise Stack — example Terraform variables.
+#
+# Copy this file to terraform.tfvars and fill in your per-deployment
+# values. terraform.tfvars is gitignored — never commit real values.
+#
+# === DO NOT EDIT variables.tf ==============================================
+# variables.tf is module source. Every per-deployment knob lives in THIS
+# file (terraform.tfvars). If you find yourself wanting to "just change
+# the default in variables.tf", set the value here instead — that's what
+# tfvars is for, and it keeps the module reusable across deployments.
+# Defaults in variables.tf exist as a safety net for power users running
+# raw `terraform apply -var ...` without a tfvars file; in the standard
+# workflow they should never be touched.
+#
+# Every variable is described in variables.tf. Skim that file if you
+# want the full reasoning; copy-paste this, edit the CHANGEME lines,
+# and you're ready to apply.
+
+# === REQUIRED ===============================================================
+
+# AWS region. Pick something close to you for low SSH latency; any
+# region with r6g instances works (us-east-1, us-east-2, us-west-2,
+# eu-west-1, eu-central-1 all do). Must be a Bedrock-enabled region
+# OR your graphrag-secrets.awsCredentials.region (in the chart values)
+# must point at one. Per-deployment.
+region = "us-west-2"
+
+# Parent domain that hosts your subdomain. Must be a domain whose DNS
+# is hosted in Route 53 in this same AWS account (cert-manager writes
+# _acme-challenge TXT records here for DNS-01 wildcard cert issuance).
+# Graphwise field SEs use Kent's `semantic-demo.com` zone (registered
+# through Route 53 -- nameservers already authoritative on AWS, no
+# delegation step). Forks / external users: register your own domain
+# in Route 53, or transfer DNS hosting (NS records) of an existing
+# domain to a Route 53 hosted zone.
+base_domain = "gw-pse.com"
+
+# Route 53 hosted zone ID for base_domain. Get it once with:
+#   aws route53 list-hosted-zones --query 'HostedZones[?Name==`<base_domain>.`].Id' --output text | sed 's|/hostedzone/||'
+# Format: Z<uppercase-alphanum>. Used to scope the EC2 instance role's
+# Route 53 permissions to just this zone (cert-manager DNS-01 solver
+# can ONLY edit records here, not anywhere else in the account).
+route53_zone_id = "CHANGEME"
+
+# Email address for the Let's Encrypt ACME account (renewal-reminder
+# mail goes here; LE rejects empty / malformed values). cloud-init
+# writes this to /etc/profile.d/graphwise.sh so scripts/cluster-
+# bootstrap.sh picks it up automatically -- no manual export needed.
+le_email = "CHANGEME@example.com"
+
+# Your subdomain under base_domain. Per-deployment. Final hostnames:
+#   <subdomain>.<base_domain>           -- Console landing
+#   <app>.<subdomain>.<base_domain>     -- every app (poolparty, auth, ...)
+subdomain = "CHANGEME"                       # e.g. "scott", "acme-corp", or multi-level "demo.stroker"
+
+# Operator-attribution tags surfaced on every AWS resource Terraform
+# creates (Billing, Cost Explorer, Resource Groups). `creator` is
+# REQUIRED (validation rejects an empty string) so nothing lands in
+# the account anonymously. `purpose` is optional but strongly
+# recommended -- helps later shared-account cleanup tell live demos
+# from forgotten test rigs.
+creator = "CHANGEME"                         # e.g. "Kent Stroker" or "kent.stroker@graphwise.ai"
+purpose = "CHANGEME"                         # e.g. "Chevron presales demo", "RC3 internal validation"
+
+# An EXISTING key pair in the target region (EC2 → Network & Security →
+# Key Pairs). You must already have the matching .pem file on your
+# laptop — Terraform does not create or download key material.
+key_pair_name = "CHANGEME"                   # name only, no .pem
+
+# Your current public IPv4 + /32. Check with `curl -4 icanhazip.com`.
+# NEVER 0.0.0.0/0 — that opens SSH to the entire internet.
+admin_cidr = "CHANGEME/32"                   # e.g. "203.0.113.42/32"
+
+# AZ to place the instance in. Must match the region above.
+# Pick the AZ that your admin_cidr subnet maps to.
+availability_zone = "CHANGEME"               # e.g. "us-west-2a"
+
+# Pre-allocated Elastic IP allocation ID. Allocate the EIP and capture
+# the Allocation ID per SETUP.md §6 → "Pre-allocate the Elastic IP"
+# BEFORE running terraform apply. Format: eipalloc-... (Allocation ID,
+# NOT the ARN). Pinning to a pre-allocated EIP keeps the IP stable
+# across terraform destroy/apply cycles so DNS records stay valid
+# forever -- the alternative (fresh EIP per apply) means re-doing DNS
+# after every rebuild, which is a maintenance burden you don't want.
+existing_eip_allocation_id = "eipalloc-CHANGEME"
+
+
+# === OPTIONAL (defaults are recommended) ===================================
+
+# Instance type. r6g.2xlarge = 8 vCPU / 64 GB Graviton ARM64. Stepping
+# down to r6g.xlarge (4 vCPU / 32 GB) works for lightweight demos but
+# leaves JVM heaps tight.
+# instance_type = "r6g.2xlarge"
+
+# Root EBS volume size. 300 GiB is the shipped recommendation.
+# root_volume_gb = 300
+
+# Note: SSH user is `ec2-user` (Amazon Linux 2023 default). Not
+# configurable -- the named_user knob was dropped during the AL2023
+# migration since AL2023 ships ec2-user pre-configured with the SSH
+# key and wheel-group sudo.
+
+# Repo to clone on first boot. Default is the public upstream.
+# github_repo_url = "https://github.com/kentstroker/graphwise-stack.builder"
+
+# Branch of github_repo_url that cloud-init clones onto the EC2.
+# "main" is the canonical deploy path. Override to a feature branch
+# only when destroy/applying chart changes that haven't merged yet.
+# github_branch = "main"
+
+# Tag prefix. Final Name tag is "<prefix>-<subdomain>".
+# instance_name_prefix = "graphwise-stack"
+
+# AMI lock -- STRONGLY RECOMMENDED to set after your first successful
+# apply. Leave commented for the very first apply (the module looks up
+# the latest AL2023 ARM64 AMI). Then run:
+#   terraform output -raw ami_id
+# and paste the resulting ami-... value below + re-apply -- expect "no
+# changes". From then on, AWS publishing newer AL2023 AMIs never causes
+# Terraform to mark your EC2 for replacement.
+#
+# (Belt-and-braces: aws_instance.stack also has lifecycle.ignore_changes
+# = [ami], so even an unset override is protected once provisioned. The
+# variable adds an explicit override path for intentional AMI upgrades.)
+# ami_override = "ami-0123456789abcdef0"
+
+# Extra tags to attach to every resource (merged with module defaults).
+ extra_tags = {
+   ownerOrganizationId = "gws"
+   project   = "pse"
+   ownerOUId = "demo"
+ }
+
+# Elasticsearch direct-access CIDR allowlist.
+# Empty list = SG rule not created; host :19200 unreachable externally.
+# No auth on this instance — restrict to trusted IPs only.
+# Example: elasticsearch_cidrs = ["198.51.100.42/32"]
+elasticsearch_cidrs = []

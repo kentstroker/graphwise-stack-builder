@@ -1,0 +1,285 @@
+{{- if and .Values.keycloak.enabled .Values.keycloak.bootstrapAdmin.enabled }}
+{{/*
+Helm hook that creates the master-realm admin user PoolParty's chart
+expects (default: poolparty_auth_admin / admin) AND wires up master's
+broken `admin` role composite, so a fresh `reset-helm.sh` run lands
+with a working PoolParty out of the box.
+
+Why this is needed:
+  1. PoolParty's chart hard-codes adminUsername=poolparty_auth_admin /
+     adminPassword=admin against master realm. The Keycloak operator
+     (v26.x) bootstraps a different user instead -- a temporary
+     "temp-admin" stored in the operator-generated
+     <keycloak>-initial-admin Secret -- and PoolParty's admin-cli
+     token request against poolparty_auth_admin/admin returns 401,
+     killing Spring Boot during DefaultPoolPartyRoleServiceFacade.init().
+  2. Worse: Keycloak operator's KeycloakRealmImport CR creates the
+     <realm>-realm clients in master but does NOT populate master's
+     `admin` role composite with their roles. Result: even with
+     `admin` role bound, poolparty_auth_admin gets 403 when querying
+     /admin/realms/poolparty/* . On the Compose path, --import-realm
+     at startup wired this automatically; under the operator we have
+     to do it ourselves.
+
+  This Job uses curl + jq against the Keycloak admin REST API to:
+    1. Wait for Keycloak readiness (poll /realms/master discovery).
+    2. Get a temp-admin token via password grant.
+    3. Create poolparty_auth_admin (idempotent).
+    4. Set its password.
+    5. Bind master's `admin` realm role.
+    6. For each <realm>-realm client in master, GET its roles and
+       POST them to /admin/realms/master/roles/admin/composites,
+       restoring the cross-realm admin grant chain.
+
+  Talks to Keycloak via the in-cluster Service (no TLS, no ingress)
+  to avoid hairpin-NAT issues and the chicken/egg of cert issuance.
+
+Why curl+jq instead of kcadm.sh:
+  kcadm in v26 silently no-ops some operations (notably `add-roles`
+  for adding a client role to a realm role's composite returned exit
+  0 with no effect). Direct REST calls give visible HTTP codes so
+  we can see exactly what worked and what didn't.
+
+Hook semantics:
+  - post-install,post-upgrade: runs every install/upgrade.
+  - hook-weight: 5 (after the Keycloak CR + operator-managed
+    bootstrap secret have a chance to come up).
+  - hook-delete-policy: before-hook-creation,hook-succeeded so the
+    last successful run is gone before we re-run, and a successful
+    run cleans up after itself. Failed runs stay in place for
+    inspection.
+
+The Job lives in the keycloak namespace because that's where the
+operator-generated initial-admin Secret lives -- pods can only mount
+Secrets from their own namespace.
+*/}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: poolparty-auth-admin
+  namespace: {{ .Values.keycloak.namespace }}
+  labels:
+    {{- include "graphwise-stack.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation
+type: Opaque
+stringData:
+  username: {{ .Values.keycloak.bootstrapAdmin.username | quote }}
+  password: {{ .Values.keycloak.bootstrapAdmin.password | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-bootstrap-admin
+  namespace: {{ .Values.keycloak.namespace }}
+  labels:
+    {{- include "graphwise-stack.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "graphwise-stack.labels" . | nindent 8 }}
+        app.kubernetes.io/name: keycloak-bootstrap-admin
+        app.kubernetes.io/component: keycloak-bootstrap-admin
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: bootstrap
+          # alpine + apk add gets us bash + curl + jq reliably from a
+          # stock image. Image is ~5MB; apk add at startup is ~5s.
+          image: {{ .Values.keycloak.bootstrapAdmin.image | quote }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KC_SERVER
+              value: "http://{{ .Values.keycloak.name }}-service.{{ .Values.keycloak.namespace }}:8080"
+            - name: TEMP_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.name }}-initial-admin
+                  key: username
+            - name: TEMP_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.keycloak.name }}-initial-admin
+                  key: password
+            - name: NEW_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: poolparty-auth-admin
+                  key: username
+            - name: NEW_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: poolparty-auth-admin
+                  key: password
+            - name: EXPECTED_REALMS
+              value: {{ .Values.keycloak.bootstrapAdmin.expectedRealms | default "" | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              apk add --no-cache bash curl jq >/dev/null
+              exec /bin/bash <<'BOOTSTRAP_EOF'
+              set -euo pipefail
+
+              # ---------- Helpers ----------
+              get_token() {
+                  curl -sf \
+                      --data-urlencode "client_id=admin-cli" \
+                      --data-urlencode "grant_type=password" \
+                      --data-urlencode "username=$TEMP_ADMIN_USER" \
+                      --data-urlencode "password=$TEMP_ADMIN_PASS" \
+                      "$KC_SERVER/realms/master/protocol/openid-connect/token" \
+                      | jq -r .access_token
+              }
+
+              # api METHOD URL [extra-curl-args...]
+              # Refreshes token automatically if a 401 is hit.
+              api() {
+                  local method="$1" url="$2"; shift 2
+                  local code body
+                  body=$(mktemp)
+                  code=$(curl -s -o "$body" -w '%{http_code}' \
+                      -X "$method" \
+                      -H "Authorization: Bearer $TOKEN" \
+                      -H 'Content-Type: application/json' \
+                      "$KC_SERVER$url" "$@")
+                  if [ "$code" = "401" ]; then
+                      TOKEN=$(get_token)
+                      code=$(curl -s -o "$body" -w '%{http_code}' \
+                          -X "$method" \
+                          -H "Authorization: Bearer $TOKEN" \
+                          -H 'Content-Type: application/json' \
+                          "$KC_SERVER$url" "$@")
+                  fi
+                  cat "$body"
+                  rm -f "$body"
+                  if [ "${code:0:1}" != "2" ]; then
+                      echo "  [ERROR] $method $url -> $code" >&2
+                      return 1
+                  fi
+              }
+
+              # ---------- 1. Wait for Keycloak ----------
+              echo "Waiting for Keycloak at $KC_SERVER ..."
+              for i in $(seq 1 60); do
+                  if curl -sf -o /dev/null \
+                      "$KC_SERVER/realms/master/.well-known/openid-configuration"; then
+                      echo "  ready after $i attempt(s)"
+                      break
+                  fi
+                  [ "$i" = "60" ] && { echo "Keycloak never came up" >&2; exit 1; }
+                  sleep 5
+              done
+
+              # ---------- 2. Get temp-admin token ----------
+              TOKEN=$(get_token)
+              if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+                  echo "Failed to get temp-admin token" >&2
+                  exit 1
+              fi
+
+              # ---------- 3. Ensure new admin user exists ----------
+              echo "Ensuring user '$NEW_ADMIN_USER' exists in master realm..."
+              USER_ID=$(api GET "/admin/realms/master/users?username=$NEW_ADMIN_USER&exact=true" \
+                  | jq -r '.[0].id // empty')
+              if [ -z "$USER_ID" ]; then
+                  echo "  creating..."
+                  api POST "/admin/realms/master/users" \
+                      -d "{\"username\":\"$NEW_ADMIN_USER\",\"enabled\":true,\"emailVerified\":true}" \
+                      >/dev/null
+                  USER_ID=$(api GET "/admin/realms/master/users?username=$NEW_ADMIN_USER&exact=true" \
+                      | jq -r '.[0].id')
+              fi
+              echo "  user id=$USER_ID"
+
+              # ---------- 4. Set password ----------
+              echo "Setting password..."
+              api PUT "/admin/realms/master/users/$USER_ID/reset-password" \
+                  -d "{\"type\":\"password\",\"value\":\"$NEW_ADMIN_PASS\",\"temporary\":false}" \
+                  >/dev/null
+
+              # ---------- 5. Bind admin realm role ----------
+              echo "Binding admin realm role..."
+              ADMIN_ROLE=$(api GET "/admin/realms/master/roles/admin")
+              api POST "/admin/realms/master/users/$USER_ID/role-mappings/realm" \
+                  -d "[$ADMIN_ROLE]" >/dev/null || true
+
+              # ---------- 5.5 Wait for expected realm imports to complete ----------
+              # Realm imports are async (operator-driven). On a cold-cache
+              # fresh deploy the realm-import pods spend ~3 min pulling the
+              # 250MB Keycloak image before they can even create the
+              # <realm>-realm clients in master. Without this wait, step 6
+              # below would iterate only the realms that exist SO FAR and
+              # silently leave the rest out of the admin composite -- leaving
+              # poolparty_auth_admin (and any downstream Job that depends on
+              # cross-realm management like graphrag-realm-patch) without
+              # the perms they need. EXPECTED_REALMS is space-separated.
+              if [ -n "${EXPECTED_REALMS:-}" ]; then
+                  echo "Waiting for expected realm imports: $EXPECTED_REALMS"
+                  for realm in $EXPECTED_REALMS; do
+                      for i in $(seq 1 60); do
+                          if curl -sf -o /dev/null \
+                              "$KC_SERVER/realms/$realm/.well-known/openid-configuration"; then
+                              echo "  realm '$realm' present after $i attempt(s)"
+                              break
+                          fi
+                          [ "$i" = "60" ] && { echo "ERROR: realm '$realm' never appeared (5min)" >&2; exit 1; }
+                          sleep 5
+                      done
+                  done
+              fi
+
+              # ---------- 6. Wire admin composite from <realm>-realm clients ----------
+              # The operator's KeycloakRealmImport creates the <realm>-realm
+              # clients in master but doesn't populate admin's composite
+              # with their roles. Without this loop, anyone with `admin`
+              # gets 403 trying to do anything in non-master realms.
+              echo "Wiring admin composite from <realm>-realm master clients..."
+              CLIENTS=$(api GET "/admin/realms/master/clients" \
+                  | jq -r '.[] | select(.clientId | endswith("-realm")) | .clientId')
+              for client in $CLIENTS; do
+                  CUUID=$(api GET "/admin/realms/master/clients?clientId=$client" \
+                      | jq -r '.[0].id')
+                  ROLES=$(api GET "/admin/realms/master/clients/$CUUID/roles")
+                  COUNT=$(echo "$ROLES" | jq 'length')
+                  api POST "/admin/realms/master/roles/admin/composites" \
+                      -d "$ROLES" >/dev/null
+                  echo "  $client -> $COUNT roles added (idempotent)"
+              done
+
+              # ---------- 7. Verify chain ----------
+              echo "Verifying poolparty_auth_admin can read non-master realms..."
+              VERIFY_TOKEN=$(curl -sf \
+                  --data-urlencode "client_id=admin-cli" \
+                  --data-urlencode "grant_type=password" \
+                  --data-urlencode "username=$NEW_ADMIN_USER" \
+                  --data-urlencode "password=$NEW_ADMIN_PASS" \
+                  "$KC_SERVER/realms/master/protocol/openid-connect/token" \
+                  | jq -r .access_token)
+              for client in $CLIENTS; do
+                  realm="${client%-realm}"
+                  [ "$realm" = "master" ] && continue
+                  CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+                      -H "Authorization: Bearer $VERIFY_TOKEN" \
+                      "$KC_SERVER/admin/realms/$realm/users")
+                  echo "  GET /admin/realms/$realm/users -> $CODE"
+                  [ "$CODE" = "200" ] || {
+                      echo "    UNEXPECTED $CODE -- composite wiring failed for $realm" >&2
+                      exit 1
+                  }
+              done
+
+              echo "Done."
+              BOOTSTRAP_EOF
+{{- end }}

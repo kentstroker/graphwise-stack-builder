@@ -1,0 +1,23 @@
+{{/*
+ConfigMap holding the rendered HTML. .Files.Glob finds every *.html
+under charts/console/files/. Each file is run through `tpl` so it can
+use Helm template variables (.Values.credentials.*, .Values.global.*)
+to surface deployment-specific values like credentials and hostnames.
+
+The umbrella's `helm upgrade` re-renders this ConfigMap on every
+deploy, so the landing page always reflects the current values.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "console.fullname" . }}
+  labels:
+    {{- include "console.labels" . | nindent 4 }}
+data:
+{{- range $path, $bytes := .Files.Glob "files/*.html" }}
+  {{ base $path }}: |-
+{{ tpl ($.Files.Get $path) $ | indent 4 }}
+{{- end }}
+binaryData:
+  # Graphwise brand logo, served as a static asset for the landing-page body.
+  graphwise.png: {{ .Files.Get "files/graphwise.png" | b64enc }}

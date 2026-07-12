@@ -1,0 +1,29 @@
+  aws iam put-role-policy \
+    --role-name graphwise-stack-kaiser-ec2-role \
+    --policy-name graphwise-cert-manager-route53 \
+    --policy-document '{
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "route53:GetChange",
+          "Resource": "arn:aws:route53:::change/*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "route53:ChangeResourceRecordSets",
+            "route53:ListResourceRecordSets"
+          ],
+          "Resource": "arn:aws:route53:::hostedzone/Z051441535LJF581T0HR1"
+        }
+      ]
+    }'
+
+
+  bash -s <<'EOF'
+  POD=$(kubectl -n graphrag get pod -l "cnpg.io/cluster=graphrag-postgres-n8n,role=primary" -o jsonpath='{.items[0].metadata.name}')
+  PW=$(kubectl -n graphrag get secret n8n-postgres-superuser -o jsonpath='{.data.password}' | base64 -d)
+  kubectl -n graphrag exec "$POD" -c postgres -- env PGPASSWORD="$PW" pg_dumpall -U postgres | gzip > /tmp/test-dump.sql.gz
+  echo "exit: $? size: $(wc -c < /tmp/test-dump.sql.gz)"
+  EOF

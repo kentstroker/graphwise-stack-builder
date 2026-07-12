@@ -1,0 +1,128 @@
+# graphdb — Ontotext GraphDB triple store. Install twice (embedded +
+# projects) under different release names; values below are defaults
+# suitable for either, with per-instance overrides via -f values-*.yaml.
+
+# Optional namespace override. When empty, every resource lands in
+# the Helm release namespace (umbrella default: graphwise). Set to
+# a non-empty string to deploy this GraphDB instance into a separate
+# namespace -- used by the umbrella's graphdb-projects alias to land
+# in `graphdb` so it's logically separated from the embedded GraphDB
+# (which stays in `graphwise` because PoolParty needs in-namespace
+# bare-name resolution to its Service). Cross-namespace clients
+# reach Services via <svc>.<ns> -- works transparently. The namespace
+# must already exist (cluster-bootstrap.sh creates it).
+namespace: ""
+
+image:
+  repository: ontotext/graphdb
+  tag: "11.4.0"
+  pullPolicy: IfNotPresent
+
+# License Secret is created out-of-band by scripts/install-licenses.sh,
+# in the same namespace as this release. The secret has one key
+# ("graphdb.license") containing the binary license file.
+license:
+  secretName: graphdb-license
+  secretKey: graphdb.license
+
+# Public URL the GraphDB workbench advertises for self-referential
+# links. Must match the Ingress host below. Override per-release:
+#   graphdb-embedded → https://graphdb.<sub>.<base>
+#   graphdb-projects → https://graphdb-projects.<sub>.<base>
+externalUrl: ""
+
+service:
+  type: ClusterIP
+  port: 7200
+  # nodePort: only used when type=NodePort. Leave unset (or 0) for
+  # ClusterIP.
+  nodePort: 0
+
+# Ingress with HTTPS via cert-manager + Let's Encrypt + nginx-ingress
+# basic auth.
+ingress:
+  enabled: true
+  className: nginx
+  # Hostname the Ingress matches on. Set per-release; if blank, the
+  # template falls back to the externalUrl host.
+  host: ""
+  # cert-manager ClusterIssuer that mints the TLS cert. letsencrypt-prod
+  # is created by scripts/cluster-bootstrap.sh.
+  # TLS Secret name — cert-manager populates it. Default per-release:
+  # <release>-tls.
+  tlsSecretName: ""
+
+# HTTP basic auth gating the Ingress. The chart creates a Secret named
+# <release>-basic-auth containing an htpasswd-format `auth` key. Default
+# credentials match the existing demo (demo:rdf#rocks). Rotate by
+# overriding `htpasswd` with `openssl passwd -apr1` output.
+basicAuth:
+  enabled: true
+  # Pre-computed APR-MD5 hash for password "rdf#rocks". Generated with:
+  #   htpasswd -nb demo 'rdf#rocks'
+  # If you change credentials, regenerate with the same command.
+  htpasswd: "demo:$apr1$1Ub6kYrD$xxG9zJZXPddeN2WT8E/Ro/"
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 30Gi
+  accessMode: ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 4Gi
+  limits:
+    memory: 10Gi
+
+# JVM options for the GraphDB process. The image's startup script
+# (/opt/graphdb/dist/bin/graphdb) forwards GDB_JAVA_OPTS as java
+# command-line args. -Xmx caps heap; leave ~2Gi headroom in
+# resources.limits.memory for non-heap (metaspace, threads, off-heap
+# caches) and OS overhead. Why this is set explicitly: without it,
+# the GraphDB JVM defaults to ~1Gi heap regardless of pod memory
+# limit -- container had 4Gi headroom but the JVM never knew, and
+# group-by/distinct queries OOM'd at the JVM level while the
+# container looked healthy. 2026-05-14 incident; rule of thumb is
+# JVM heap = pod limit - 2Gi.
+javaOpts: "-Xmx8g"
+
+replicas: 1
+
+podSecurityContext: {}
+securityContext: {}
+
+# Extra volumes and mounts injected into the GraphDB pod. Use to attach
+# additional PVCs (e.g. the staging-data hostPath PVC for server-side
+# import). See graphdb-projects override in the umbrella values.
+extraVolumes: []
+extraVolumeMounts: []
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# CIDR allowlist for the Ingress. When non-empty, nginx restricts inbound
+# access to the listed source ranges. Defaults open ([]). Override for
+# graphdb-projects when running without nginx basic-auth so only admin
+# IPs can reach the workbench. Populated by render-values.sh from
+# admin_cidr in terraform.tfvars.
+allowedCidrs: []
+
+# GraphDB-native security. When enabled, a post-install Helm Job
+# turns on GraphDB's built-in user database and rotates the default
+# admin password (admin/root) to the value in the <fullname>-admin
+# Secret. Defaults off so the two pre-existing instances
+# (graphdb-embedded, graphdb-projects) remain unauthenticated at
+# the GraphDB layer (their security model is nginx basic auth at
+# the Ingress).
+security:
+  enabled: false
+  # Image used for the init Job. Alpine + curl is enough.
+  image: alpine:3.20
+  # Default password GraphDB ships with after security is first enabled.
+  # GraphDB 11 default is admin/root (confirmed against the GraphDB 11.3
+  # "Enabling security" docs). Override only if a future GraphDB release
+  # changes the default.
+  defaultAdminPassword: "root"

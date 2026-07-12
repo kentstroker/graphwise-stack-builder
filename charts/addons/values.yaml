@@ -1,0 +1,78 @@
+# addons — defaults for each sub-chart. Toggle with <name>.enabled.
+# Hostnames + Keycloak URL filled in by the umbrella graphwise-stack
+# values overlay (per-deployment subdomain).
+
+adf:
+  enabled: true
+  image:
+    repository: ontotext/adf
+    tag: "1.8.2"
+  externalUrl: ""           # https://adf.<sub>.<base>
+  keycloak:
+    url: ""                 # https://auth.<sub>.<base>/
+    realm: poolparty
+    clientSecret: "ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb5"
+  poolparty:
+    internalUrl: "http://graphwise-stack-poolparty:8081"
+
+semantic-workbench:
+  enabled: true
+  image:
+    repository: ontotext/semantic-workbench
+    tag: "2.4.2"
+  externalUrl: ""
+  keycloak:
+    url: ""
+    realm: poolparty
+    clientSecret: "ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb5"
+  poolparty:
+    internalUrl: "http://graphwise-stack-poolparty:8081"
+  license:
+    secretName: poolparty-license
+    secretKey: poolparty.key
+
+graphviews:
+  enabled: true
+  image:
+    repository: ontotext/graphviews
+    tag: "1.0.0"
+  externalUrl: ""
+  poolparty:
+    internalUrl: "http://graphwise-stack-poolparty:8081"
+    superadminPassword: "poolparty"
+
+rdf4j:
+  enabled: true
+  image:
+    repository: eclipse/rdf4j-workbench
+    tag: "5.1.2"
+  externalUrl: ""
+  basicAuth:
+    enabled: true
+    htpasswd: "demo:$apr1$1Ub6kYrD$xxG9zJZXPddeN2WT8E/Ro/"
+
+unifiedviews:
+  enabled: true
+  image:
+    repository: ontotext/unifiedviews
+    tag: "10.2.3"
+  externalUrl: ""
+  license:
+    secretName: unifiedviews-license
+    secretKey: uv-license.key
+
+refine:
+  # OFF by default: ontotext/refine:1.2.2 is amd64-only (single-platform
+  # docker manifest.v2). On the canonical Graviton (arm64) deploy this
+  # pod crashes immediately with `exec /opt/ontorefine/dist/bin/ontorefine:
+  # exec format error`. The umbrella also defaults this to false; flip
+  # both to true ONLY on an amd64-instance deploy.
+  enabled: false
+  image:
+    repository: ontotext/refine
+    tag: "1.2.2"
+  externalUrl: ""           # https://refine.<sub>.<base>
+  allowedCidrs: []          # admin_cidr from terraform.tfvars; render-values.sh populates. Empty -> annotation omitted -> ingress open.
+  graphdb:
+    # Display-only; surfaced on the console card. No env wiring.
+    internalUrl: "http://graphwise-stack-graphdb-projects:7200"

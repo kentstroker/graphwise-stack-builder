@@ -1,0 +1,38 @@
+apiVersion: v2
+name: addons
+description: |
+  Umbrella chart for the optional Graphwise add-ons: ADF, Semantic
+  Workbench, GraphViews, RDF4J, UnifiedViews, Refine. Each is
+  toggleable via <name>.enabled in values.yaml. Mirrors today's
+  addons.yaml.
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+maintainers:
+  - name: gsb
+    url: https://github.com/kentstroker/graphwise-stack-builder
+dependencies:
+  - name: adf
+    version: 2.0.0
+    repository: file://./charts/adf
+    condition: adf.enabled
+  - name: semantic-workbench
+    version: 2.0.0
+    repository: file://./charts/semantic-workbench
+    condition: semantic-workbench.enabled
+  - name: graphviews
+    version: 2.0.0
+    repository: file://./charts/graphviews
+    condition: graphviews.enabled
+  - name: rdf4j
+    version: 2.0.0
+    repository: file://./charts/rdf4j
+    condition: rdf4j.enabled
+  - name: unifiedviews
+    version: 2.0.0
+    repository: file://./charts/unifiedviews
+    condition: unifiedviews.enabled
+  - name: refine
+    version: 2.0.0
+    repository: file://./charts/refine
+    condition: refine.enabled

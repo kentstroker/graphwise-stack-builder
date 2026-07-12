@@ -1,0 +1,79 @@
+# console — apex landing page.
+
+image:
+  repository: nginx
+  tag: "1.31.2"
+  pullPolicy: IfNotPresent
+
+# Source files.master for the static page live under files.master/ inside this chart
+# (charts/console/files.master/*.html). They were originally in the repo's
+# top-level files.master/console/ for the compose stack; the chart now owns
+# them. The umbrella chart pre-render step keeps both copies in sync
+# until the compose path is fully retired.
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  # Apex host — the bare <subdomain>.<base_domain>, no app prefix.
+  host: ""
+  tlsSecretName: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+replicas: 1
+
+# Credentials shown on the rendered landing page. Defaults match the
+# stack's actual default credentials. Override from the umbrella when
+# a value is sourced from elsewhere (e.g. the master-realm admin
+# password lives in the umbrella's keycloak.bootstrapAdmin.password).
+#
+# Authoritative reference for every credential in the stack lives in
+# CONSOLE-GUIDE.md → "Credentials reference"; keep these in sync.
+credentials:
+  # PoolParty SSO — superadmin user is baked into the Ontotext image.
+  poolparty: "superadmin / poolparty"
+
+  # Master realm admin (created by the bootstrap-admin Helm Job in
+  # the umbrella). Source: umbrella keycloak.bootstrapAdmin.{username,password}.
+  keycloakAdmin: "poolparty_auth_admin / admin"
+
+  # GraphRAG demo users — provisioned by the keycloak-realms subchart
+  # via the imported graphrag realm export.
+  graphragSso: "alice / alice123 (or bob / bob123)"
+
+  # Basic auth for GraphDB / RDF4J / Prometheus ingresses. Provisioned
+  # by scripts/cluster-bootstrap.sh via htpasswd. Keep this string in
+  # sync with that script if you ever change the password there.
+  basicAuth: "demo / rdf#rocks"
+
+  # Grafana admin password. Source:
+  # charts/observability/kube-prometheus-stack-values.yaml -> grafana.adminPassword
+  grafana: "admin / demo-graphwise-2026"
+
+  # n8n's own login (configured by the first user to visit the
+  # workflow editor URL).
+  n8n: "n8n own login (set on first visit)"
+
+  # UnifiedViews login (image default).
+  unifiedviews: "admin / admin"
+
+  # Kubernetes Dashboard sign-in. The kubeconfig is auto-generated
+  # by scripts/cluster-bootstrap.sh at ~/dashboard-kubeconfig.yaml on
+  # the EC2 host; scp it locally and upload at the Dashboard login.
+  dashboard: "kubeconfig (~/dashboard-kubeconfig.yaml)"
+
+# Customer branding for the console header. Both empty by default -> the
+# header renders unbranded (title + server line only). Set via
+# scripts/set-logo.sh, which writes a persistent gitignored overlay.
+branding:
+  logoDataUri: ""    # data:image/<type>;base64,...
+  logoAlt: ""        # customer name, e.g. "Acme Corp"

@@ -1,0 +1,409 @@
+####################################################################
+# graphwise-stack — top-level umbrella values.
+#
+# Most teammates only need to change global.subdomain. Everything
+# else cascades from there.
+####################################################################
+#
+# ╔══════════════════════════════════════════════════════════════╗
+# ║                                                              ║
+# ║   ⚠  USER-SUPPLIED CREDENTIALS DO NOT LIVE IN THIS FILE      ║
+# ║                                                              ║
+# ║   Maven registry creds (maven.user / maven.pass), AWS        ║
+# ║   Bedrock keys, and the n8n license activation key all live  ║
+# ║   in ~/graphwise-secrets.yaml on the EC2 host (auto-created  ║
+# ║   by Terraform cloud-init, gitignored, never tracked).       ║
+# ║   reset-helm.sh auto-includes that file via -f, so the       ║
+# ║   overlay's values merge over this file's defaults. Maven    ║
+# ║   creds are read separately by reset-helm.sh to kubectl-     ║
+# ║   create the `graphwise` image-pull Secret in the graphwise  ║
+# ║   + graphrag namespaces (no Helm value for them in here).    ║
+# ║                                                              ║
+# ║   Why a separate overlay: every git pull would otherwise     ║
+# ║   merge-conflict against your real credentials. The overlay  ║
+# ║   stays EC2-local; pulls are always clean fast-forwards.     ║
+# ║                                                              ║
+# ║   For a full deploy: edit ~/graphwise-secrets.yaml and       ║
+# ║   fill in maven + awsCredentials + n8nLicense. For an        ║
+# ║   umbrella-only deploy (reset-helm.sh --skip-graphrag) maven ║
+# ║   + Bedrock + n8n can stay as placeholders -- GraphRAG isn't ║
+# ║   installed in that mode.                                    ║
+# ║                                                              ║
+# ║   Walkthrough: DEPLOY.md §7.                                 ║
+# ║                                                              ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+global:
+  # Per-teammate subdomain. Required. All app hostnames are computed:
+  #   poolparty.<subdomain>.<baseDomain>, auth.<subdomain>.<baseDomain>,
+  #   graphrag.<subdomain>.<baseDomain>, ...
+  subdomain: "stroker"
+  baseDomain: "semantic-demo.com"
+
+  # Image pull secret name for the Graphwise private registry.
+  # Created by scripts/cluster-bootstrap.sh in the namespaces that
+  # need it. Referenced by the vendored graphrag chart.
+  imagePullSecrets:
+    - name: graphwise
+
+####################################################################
+# graphrag-secrets — Secrets / ConfigMap consumed by the vendored
+# graphrag chart.
+#
+# awsCredentials + n8nLicense + n8nEncryption are NOT defined here --
+# they live in ~/graphwise-secrets.yaml on the EC2 host (per the
+# header banner above). Defaults below are placeholders that the
+# overlay file overrides on every reset-helm/upgrade.
+#
+# Remaining sub-blocks (conversation, conversationKeycloak, vectorDB,
+# n8nDatabase, etc.) are internal/cluster-only and don't normally
+# need editing.
+#
+# Idempotent — re-installs replace.
+####################################################################
+graphrag-secrets:
+  enabled: true
+  namespace: graphrag
+
+  # Placeholders overridden by ~/graphwise-secrets.yaml on the EC2.
+  # Materialized as: Secret graphrag-components-aws-credentials.
+  awsCredentials:
+    region: "us-west-2"
+    accessKeyId: ""
+    secretAccessKey: ""
+
+  # Placeholder overridden by ~/graphwise-secrets.yaml on the EC2.
+  # Materialized as: Secret graphrag-n8n-license.
+  n8nLicense:
+    activationKey: ""
+
+  # ─────────────────────────────────────────────────────────────────
+  # Internal — don't normally need to edit
+  # ─────────────────────────────────────────────────────────────────
+
+  # Secret graphrag-conversation-database-credentials.
+  conversation:
+    dbUsername: "graphrag_conversation"
+    dbPassword: "rdf#rocks"
+
+  # Secret graphrag-conversation-keycloak-client. clientSecret must
+  # match the conversation-api-client secret in the graphrag realm
+  # (keycloak-realms.graphragConversationClientSecret below).
+  conversationKeycloak:
+    clientId: "conversation-api-client"
+    clientSecret: "rdf#rocks"
+    scope: "openid"
+
+  # ConfigMap graphrag-components-vector-database. We reuse
+  # poolparty-elasticsearch as the vector store (Q3: option a).
+  #
+  # The poolparty-elasticsearch subchart's Service is rendered by the
+  # umbrella with the <release>-<chart> fullname pattern -- so the
+  # actual in-cluster name is `graphwise-stack-poolparty-elasticsearch`,
+  # not the bare `poolparty-elasticsearch`. Matches the same naming
+  # convention as the graphdb-embedded / graphdb-projects services
+  # (see CLAUDE.md "GraphDB subchart fullname pattern").
+  #
+  # If you ever rename the umbrella's Helm release away from
+  # `graphwise-stack`, update this URL in lockstep.
+  vectorDB:
+    vectorStore: "elasticsearch"
+    elasticUrl: "http://graphwise-stack-poolparty-elasticsearch.graphwise:9200"
+    vectorIndex: "graphrag-vectors"
+    vectorFieldName: "embedding"
+
+  # Secret graphrag-n8n-database-credentials.
+  n8nDatabase:
+    username: "n8n"
+    password: "rdf#rocks"
+
+  # Secret graphrag-n8n-encryption — long random key, MUST stay
+  # constant or n8n credentials become unreadable.
+  # Auto-generated by Terraform's `random_id.n8n_encryption_key` and
+  # supplied via the ~/graphwise-secrets.yaml overlay that
+  # reset-helm.sh auto-includes. Don't edit this default — it's only
+  # used as a placeholder if the overlay is absent.
+  n8nEncryption:
+    key: "change-me-32-character-random-string"
+
+####################################################################
+# Infrastructure pieces this umbrella owns directly (no sub-chart):
+# - Keycloak operator CR + CNPG Postgres for it
+# - n8n Postgres (CNPG cluster + bootstrap Secrets)
+####################################################################
+
+keycloak:
+  # Keycloak CR managed by the operator (installed by cluster-bootstrap.sh).
+  # Single instance for demo (the operator default of 2 chews RAM).
+  enabled: true
+  name: graphwise-keycloak
+  namespace: keycloak
+  instances: 1
+  # Keycloak runtime image. Default: PoolParty's flavour of Keycloak
+  # 25.0.6 -- a full distribution with poolparty-default-settings-
+  # provider (the SPI that creates each new user's skosView row in
+  # PoolParty's DB on Keycloak CREATE_USER events) and the poolparty
+  # login theme already on the classpath. Without it, post-deploy
+  # users 500 in PoolParty with "skosView is missing" on first login
+  # (only the chart-seeded `superadmin` works). Empty string ("")
+  # falls back to the operator's default Keycloak image -- DON'T use
+  # that with this stack unless you know you're testing the gap.
+  # Pre-loaded into KIND by cluster-bootstrap.sh so this name doesn't
+  # need to be reachable from inside the cluster.
+  image: "ontotext/poolparty-keycloak:latest"
+  postgres:
+    name: keycloak-postgres
+    instances: 1
+    storage: 5Gi
+    superuserPassword: "rdf#rocks"
+    appUsername: keycloak
+    appPassword: "rdf#rocks"
+  # Helm post-install/post-upgrade Job that creates the master-realm
+  # admin user PoolParty's chart expects (poolparty_auth_admin / admin)
+  # so a fresh `reset-helm.sh` run lands working out of the box. See
+  # templates/keycloak-bootstrap-admin-job.yaml for the rationale.
+  bootstrapAdmin:
+    enabled: true
+    username: poolparty_auth_admin
+    password: admin
+    # Small base image; the Job apk-adds bash + curl + jq at startup
+    # and drives the Keycloak admin REST API directly. Switched away
+    # from quay.io/keycloak/keycloak because kcadm.sh in v26 silently
+    # no-ops some operations we depend on (notably adding client
+    # roles to a realm role's composite).
+    image: alpine:3.24
+    # Realms the bootstrap-admin Job must wait for before wiring the
+    # master admin composite. Realm imports are async (operator-
+    # driven) -- on a cold-cache deploy the realm-import pods pull
+    # ~250MB of Keycloak image first and don't complete for ~3 min,
+    # well after this Job's wait-for-Keycloak step ends. Without an
+    # explicit wait, step 6 of the Job (wire <realm>-realm clients
+    # into master's admin composite) silently iterates only the
+    # realms that exist SO FAR, leaving the rest out and breaking
+    # downstream Jobs like graphrag-realm-patch. Space-separated.
+    expectedRealms: "graphrag poolparty"
+
+n8nPostgres:
+  enabled: true
+  name: graphrag-postgres-n8n
+  namespace: graphrag
+  instances: 1
+  storage: 5Gi
+  superuserPassword: "rdf#rocks"
+  appUsername: n8n
+  appPassword: "rdf#rocks"
+
+####################################################################
+# Federated demo databases (federated namespace)
+####################################################################
+# Standalone Postgres + MySQL for demonstrating a federated GraphDB
+# deployment against the GraphDB projects instance. Infra-only: empty,
+# in-cluster access ONLY (no Ingress, no cert reflection, no SG rules).
+federatedPostgres:
+  enabled: true
+  name: federated-postgres
+  namespace: federated
+  instances: 1
+  storage: 5Gi
+  superuserPassword: "rdf#rocks"
+  database: federated
+  appUsername: federated
+  appPassword: "rdf#rocks"
+
+federatedMysql:
+  enabled: true
+  name: federated-mysql
+  namespace: federated
+  image: "mysql:9.7"
+  storage: 5Gi
+  rootPassword: "rdf#rocks"
+  database: federated
+  appUsername: federated
+  appPassword: "rdf#rocks"
+
+####################################################################
+# Staging data — universal upload path
+####################################################################
+# A standardized hostPath-backed PV/PVC pair per namespace, exposing
+# /home/ec2-user/staging-data (on the EC2) -> /staging-data (inside
+# the KIND container) -> a PVC named "staging-data" in each listed
+# namespace. Pods then mount the PVC to read the uploaded data.
+#
+# Operators upload via:
+#   rsync -azP -e "ssh -i <key.pem>" <local>/  ec2-user@<eip>:~/staging-data/
+#
+# Adding extraMounts to KIND requires a `kind delete` + `kind create`
+# (destructive, wipes K8s state). If you pull this for the first time
+# on an existing deployment, the PV/PVC objects render successfully
+# but the underlying /staging-data path inside the running KIND
+# container won't exist until you recreate the cluster. Pods that
+# don't mount the PVC are unaffected; pods that do mount it will
+# FailedMount until the path exists.
+#
+# See HOWITWORKS §11 for the three-layer wiring explanation.
+staging:
+  enabled: true
+  # Namespaces that get a PVC named "staging-data". One PV per PVC
+  # (PVs bind 1:1); all PVs point at the same hostPath so all
+  # namespaces see identical data.
+  namespaces:
+    - graphwise
+    - graphrag
+    - graphdb
+  # Path INSIDE the KIND container (set by infra/kind/kind-config.yaml's
+  # extraMounts). Don't change unless you also change kind-config.
+  hostPath: /staging-data
+  # Nominal capacity. hostPath doesn't enforce; this is just what
+  # `kubectl get pvc` reports. Bump if your ingest data grows.
+  size: 50Gi
+  accessMode: ReadWriteMany
+  # Sentinel storage class -- no provisioner exists for it. PVs are
+  # statically created by this template; PVCs pin to their PV via
+  # volumeName. Without that pin, PVCs would stay Pending while K8s
+  # tried (and failed) to dynamically provision.
+  storageClassName: hostpath-staging
+  # Retain on PVC delete -- the underlying files.master on the EC2 host
+  # outlive any helm uninstall / reset-helm cycle.
+  reclaimPolicy: Retain
+
+####################################################################
+# Sub-chart overrides
+####################################################################
+
+# Realm imports.
+keycloak-realms:
+  enabled: true
+  keycloakCRName: graphwise-keycloak
+  graphragConversationClientSecret: "rdf#rocks"
+
+# PoolParty's Elasticsearch (also vector store for graphrag-components).
+poolparty-elasticsearch:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 31920
+
+# Two GraphDB instances.
+graphdb-embedded:
+  enabled: true
+  externalUrl: ""           # filled by templates/graphdb-values.yaml at install time? No — fill via post-install? See below.
+  ingress:
+    host: ""
+
+graphdb-projects:
+  enabled: true
+  # nginx basic-auth is disabled for graphdb-projects. GraphDB-native
+  # security (kstroker/rdf#rocks or equivalent) is the auth gate.
+  # The ingress is CIDR-restricted instead; render-values.sh populates
+  # allowedCidrs from admin_cidr in terraform.tfvars.
+  basicAuth:
+    enabled: false
+  allowedCidrs: []  # render-values.sh fills this in per-deployment
+  # Namespace override -- graphdb-projects lives in its own namespace
+  # `graphdb` for logical separation from the embedded GraphDB (which
+  # stays in `graphwise` because PoolParty needs in-namespace bare-name
+  # Service resolution to it). Cross-namespace Service access works
+  # transparently via <svc>.<ns> -- PoolParty / UnifiedViews / any
+  # external client reaches it via either the public Ingress URL
+  # (https://graphdb-projects.<apex>/) or the in-cluster Service URL
+  # (http://graphwise-stack-graphdb-projects.graphdb:7200/).
+  # The `graphdb` namespace is created by scripts/cluster-bootstrap.sh
+  # and the `graphdb-license` Secret is installed there too by
+  # scripts/install-licenses.sh.
+  namespace: graphdb
+  externalUrl: ""
+  ingress:
+    host: ""
+  # Mount the shared staging-data PVC (created by staging-data.yaml for the
+  # graphdb namespace) at the GraphDB server-import path so files.master uploaded
+  # to ~/staging-data on the EC2 appear in the Workbench "Server files.master" tab.
+  extraVolumes:
+    - name: staging-import
+      persistentVolumeClaim:
+        claimName: staging-data
+  extraVolumeMounts:
+    - name: staging-import
+      mountPath: /root/graphdb-import
+
+# PoolParty.
+poolparty:
+  enabled: true
+  externalUrl: ""
+  keycloak:
+    authUrl: ""
+  cors:
+    allowedOrigins: ""
+  urlBase:
+    scheme: ""
+    vocabulary: ""
+    user: ""
+    context: ""
+  ingress:
+    host: ""
+  # Pluggable LLM (PoolParty 10.2+). Drives "Build Your Taxonomy" and
+  # related AI features. Defaults to Bedrock + Claude Sonnet 4.5 in
+  # us-west-2. AWS creds are sourced from a Secret materialized by
+  # the umbrella's templates/poolparty-aws-credentials.yaml from the
+  # same graphrag-secrets.awsCredentials overlay block. SETUP §4b
+  # documents the IAM scope needed for this model.
+  #
+  # Backend wiring alone isn't enough -- after a successful deploy
+  # the operator must also create a Taxonomy Advisor instance in
+  # PoolParty's SMC using an API key issued by Graphwise.
+  # QUICKSTART §18 / CONSOLE-GUIDE PoolParty Thesaurus walk through it.
+  llm:
+    enabled: true
+    api: bedrock
+    model: "us.meta.llama3-3-70b-instruct-v1:0"
+    region: "us-west-2"
+    awsCredentialsSecret: poolparty-aws-credentials
+
+# Console landing page on the apex.
+console:
+  enabled: true
+  ingress:
+    host: ""
+
+# Optional add-on apps.
+addons:
+  enabled: true
+  adf:
+    enabled: true
+    externalUrl: ""
+    keycloak:
+      url: ""
+  semantic-workbench:
+    enabled: true
+    externalUrl: ""
+    keycloak:
+      url: ""
+  graphviews:
+    enabled: true
+    externalUrl: ""
+    poolparty:
+      superadminPassword: "rdf#rocks"
+  rdf4j:
+    enabled: true
+    externalUrl: ""
+  unifiedviews:
+    enabled: true
+    externalUrl: ""
+  refine:
+    # OFF by default: ontotext/refine:1.2.2 ships an amd64-only image
+    # (manifest is a single-platform manifest.v2, no ARM64 variant). The
+    # canonical deploy targets AL2023 Graviton (arm64), where the pod
+    # crashes immediately with `exec /opt/ontorefine/dist/bin/ontorefine:
+    # exec format error`. Flip to true ONLY on an amd64-instance deploy
+    # (e.g. swap `instance_type` to a non-r6g family in tfvars). See
+    # CLAUDE.md "Currently open issues" for the vendor-side request to
+    # publish a multi-arch tag.
+    enabled: false
+    externalUrl: ""
+    allowedCidrs: []
+
+# Note: vendored GraphRAG values (chatbot/conversation/components/
+# workflows) are NOT defined here -- the graphrag chart is installed
+# as a separate Helm release in the graphrag namespace by
+# scripts/reset-helm.sh. Deployment-agnostic defaults live in
+# charts/vendor/graphrag/values-graphwise.yaml; per-subdomain
+# overrides are emitted by scripts/render-values.sh.

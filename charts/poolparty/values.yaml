@@ -1,0 +1,156 @@
+# poolparty — main taxonomy authoring application.
+#
+# Most values here have direct counterparts in today's env-config /
+# base.yaml. The umbrella graphwise-stack chart fills in the
+# hostname-derived values (keycloakAuthUrl, ingress.host, the
+# _POOLPARTY_URL_BASE_* family) so this file mostly just declares
+# defaults and references to other Services/Secrets in the cluster.
+
+image:
+  repository: ontotext/poolparty
+  tag: "10.2.2"
+  pullPolicy: IfNotPresent
+
+# License Secret — created by scripts/install-licenses.sh.
+license:
+  secretName: poolparty-license
+  secretKey: poolparty.key
+
+# Public hostname (set by the umbrella). Must match ingress.host.
+externalUrl: ""
+
+# Internal references — Service DNS names within the same namespace.
+# Do NOT change to public URLs (these calls don't go through OIDC).
+#
+# The graphdb subchart is installed under two umbrella aliases
+# (graphdb-embedded, graphdb-projects). Helm renders the in-cluster
+# Service names as <release>-<alias> (see charts/graphdb/templates/_helpers.tpl
+# → graphdb.fullname). For the umbrella release "graphwise-stack",
+# the embedded instance lives at graphwise-stack-graphdb-embedded:7200.
+graphdb:
+  internalUrl: "http://graphwise-stack-graphdb-embedded:7200"
+
+# Same release-prefix rename pattern as graphdb above. The
+# poolparty-elasticsearch subchart's Service is rendered by the umbrella
+# as `graphwise-stack-poolparty-elasticsearch` (release name +
+# subchart name). The bare `poolparty-elasticsearch` Service does NOT
+# exist as a result, so PoolParty's GraphSearch / Extractor flows
+# would fail at runtime with UnknownHostException -- caught when
+# graphrag-components hit the same DNS-resolution wall on its own
+# elasticUrl. Both consumers updated together. If you ever rename
+# the umbrella release away from `graphwise-stack`, update this URL
+# in lockstep.
+elasticsearch:
+  internalUrl: "http://graphwise-stack-poolparty-elasticsearch:9200"
+  type: ELASTICSEARCH
+  username: ""
+  password: ""
+
+# Keycloak wiring — see CLAUDE.md "OIDC issuer-match rule".
+# authUrl MUST be the public URL (https://auth.<sub>.<base>/) so it
+# matches the issuer claim Keycloak signs into JWTs.
+keycloak:
+  authUrl: ""           # set by umbrella, e.g. https://auth.<sub>.<base>/
+  loginRealm: "poolparty"
+  adminRealm: "master"
+  loginClientId: "ppt"
+  loginClientSecret: "ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb5"
+  adminClientId: "admin-cli"
+  adminUsername: "poolparty_auth_admin"
+  adminPassword: "admin"
+
+# Stable encryption key for PoolParty's secrets-in-GraphDB feature.
+# MUST stay constant across pod restarts or stored secrets become
+# unreadable. Treat as a vault credential.
+encryptionPassword: "1234567890"
+
+# URL bases used when minting new RDF resources. The umbrella sets
+# these to the PoolParty public URL.
+urlBase:
+  scheme: ""
+  vocabulary: ""
+  user: ""
+  context: ""
+
+# CORS — additional origins (e.g. graphrag.<sub>.<base>) appended to
+# the PoolParty public URL.
+cors:
+  allowedOrigins: ""
+
+# Pluggable LLM provider — drives PoolParty 10.2+ features like
+# "Build Your Taxonomy" (Taxonomy Advisor) and other AI-assisted
+# workflows. PoolParty maps the env vars below to the system
+# properties `poolparty.llm.api`, `poolparty.llm.model`, and
+# `poolparty.llm.bedrock.region` (see vendor docs). AWS credentials
+# are picked up by the bedrock client's default provider chain from
+# the AWS_* env vars sourced from the awsCredentialsSecret.
+#
+# The Secret named here is created by the umbrella chart's template
+# `templates/poolparty-aws-credentials.yaml` from the same
+# graphrag-secrets.awsCredentials overlay block that feeds the
+# graphrag-components pod -- single source of truth in
+# ~/graphwise-secrets.yaml, materialized twice (graphrag ns +
+# graphwise ns).
+#
+# IAM scope: the access key behind awsCredentialsSecret needs
+# bedrock:InvokeModel on the inference-profile ARN
+# us.meta.llama3-3-70b-instruct-v1:0 (account-scoped) AND on the
+# foundation-model ARN meta.llama3-3-70b-instruct-v1:0 in each
+# region the profile routes to (us-east-1 / us-east-2 / us-west-2).
+# Bare foundation-model ARN alone is insufficient for newer chat
+# models -- Bedrock authorizes against the profile ARN + the
+# landing-region foundation ARN. SETUP §4b's inline policy lists
+# all four entries alongside the Cohere embed model.
+#
+# Application-level step: backend wiring alone doesn't activate the
+# feature -- after a successful deploy you must also create a
+# Taxonomy Advisor instance in PoolParty's SMC (External Services
+# → Taxonomy Advisor → Create instance) using an API key issued by
+# your Graphwise rep. See QUICKSTART §18 / CONSOLE-GUIDE PoolParty
+# Thesaurus section.
+llm:
+  enabled: false
+  api: bedrock
+  model: "us.meta.llama3-3-70b-instruct-v1:0"
+  region: "us-west-2"
+  awsCredentialsSecret: poolparty-aws-credentials
+
+# JVM heap. 12g lands inside a 14Gi pod limit, leaving the
+# heap=limit−2Gi headroom (metaspace, threads, off-heap caches).
+# Bumped from 8g after observing steady-state usage at 8.6 GiB on
+# the 10Gi limit (84% — GC-thrashing range, surfaced as request
+# timeouts / 500s under load). Wired into the pod via the
+# PP_HEAP_SIZE env var (image's launcher script forwards it as -Xmx).
+heapSize: "12g"
+
+service:
+  type: ClusterIP
+  port: 8081
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  tlsSecretName: ""
+
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 30Gi
+  accessMode: ReadWriteOnce
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 12Gi
+  limits:
+    memory: 14Gi
+
+replicas: 1
+
+podSecurityContext: {}
+securityContext: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

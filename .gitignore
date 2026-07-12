@@ -1,0 +1,41 @@
+# --- macOS / IDE / local env ---
+.DS_Store
+.idea/
+.venv/
+.claude/settings.local.json
+
+# --- Local-only material (delivered out-of-band, never pushed) ---
+/docs/
+/n8n/
+/n8n-workflows/
+/files.master/
+
+# --- Secrets (exact-name; *.example variants stay tracked) ---
+**/graphwise-secrets.yaml
+**/terraform.tfvars
+**/n8n.txt
+
+# --- Terraform run artifacts, anywhere ---
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# --- License blobs (depth-agnostic; survives a parent-dir rename) ---
+**/licenses/*
+!**/licenses/README.txt
+
+# --- Helm nested-subchart tarballs / lockfiles (silent-stale-tarball footgun) ---
+**/Chart.lock
+**/charts/*.tgz
+# ...except the umbrella's own vendored deps, which ARE committed intentionally
+!charts/graphwise-stack/charts/*.tgz
+
+# --- Raw n8n Postgres dump (runtime artifact expanded from the shipped
+#     *.sql.tar.gz at cloud-init; never the tracked form) ---
+infra/terraform-subdomain/files/*.sql
+
+# Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit
+refine/*.zip
