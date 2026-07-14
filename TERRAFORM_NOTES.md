@@ -5,7 +5,7 @@
 This document covers how the Terraform module is structured, what each file does,
 and how `user-data.sh.tpl` bootstraps the EC2 instance. For the full step-by-step
 deploy walkthrough see [DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md);
-for the operator's concise deploy steps see [README.md](README.md).
+for the operator's concise deploy steps see [STACK-BUILDER.md](STACK-BUILDER.md).
 
 ---
 
