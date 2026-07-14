@@ -187,11 +187,12 @@ logs, or `terraform output -raw user_data_b64 | base64 -d | wc -c`).
 
 10. **Clone repo + create KIND cluster** — runs as `ec2-user` via `sudo -u ec2-user -i bash <<INNER`. The login-shell form (`-i`) forces a fresh group lookup so the `docker` group membership is live before `kind create cluster`. Idempotent: skips clone if `~/gsb` exists, skips cluster create if `graphwise` cluster exists.
 
-11. **n8n DB tarball expansion** — for any `n8n-pg-dumpall-*.sql.tar.gz` in the repo's
-    `infra/terraform-subdomain/files/` directory, expands to `$HOME`. The raw SQL
-    (138 MB) exceeds GitHub's 100 MB per-file limit; the tarball (~18 MB) rides the
-    git clone and is expanded here so the later `restore-n8n-dumpall.sh` step finds it
-    at `$HOME/*.sql`.
+11. **Workflow DB seed (no longer shipped in the repo)** — earlier builds expanded an
+    `n8n-pg-dumpall-*.sql.tar.gz` from the repo here. That seed is no longer shipped in
+    the repo/clone at all. The workflow DB seed now lives only on the EC2 home root as
+    `$HOME/workflows-pg-dumpall-<date>-v<N>.sql` — scp'd up by the operator or produced
+    on the box by `create-workflows-dumpall.sh` — and `restore-workflows-dumpall.sh`
+    loads the NEWEST one (no-op if none is present).
 
 12. **pip3 packages** — `pip3 install -r ~/gsb/requirements.txt` system-wide (available
     to all scripts on the host — e.g., the Python used by `extract-poolparty-realm.sh`

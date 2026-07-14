@@ -250,7 +250,7 @@ else
         2>/dev/null | tr -d ' \n' || true)
     if [ "$N8N_DB_EXISTS" != "1" ]; then
         check_fail "n8n database missing in graphrag-postgres-n8n" \
-                   "Run scripts/restore-n8n-dumpall.sh to seed the DB"
+                   "Run scripts/restore-workflows-dumpall.sh to seed the DB"
     else
         N8N_PGPW=$(kubectl -n graphrag get secret n8n-postgres-superuser \
             -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
@@ -266,7 +266,7 @@ else
             check_pass "n8n DB seeded: ${WF_COUNT} workflow(s), ${CRED_COUNT} credential(s)"
         else
             check_warn "n8n database exists but 0 workflows loaded (seed not yet applied?)" \
-                       "Run scripts/restore-n8n-dumpall.sh"
+                       "Run scripts/restore-workflows-dumpall.sh"
         fi
     fi
 fi

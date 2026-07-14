@@ -88,7 +88,7 @@ resource "random_id" "n8n_encryption_key" {
 # Render the user-data cloud-init script with the per-deployment variables
 # inlined as template substitutions. hostname_fqdn is the full
 # <subdomain>.<base_domain> — surfaced to NEXT_STEPS.txt and used by the
-# teammate when they later run scripts/cluster-bootstrap.sh.
+# teammate when they later run prep-scripts/cluster-bootstrap.sh.
 data "cloudinit_config" "bootstrap" {
   # gzip: cloud-init auto-detects the gzip magic bytes and decompresses on boot.
   # Required headroom -- inlining graphwise-secrets.yaml + n8n.txt + licenses as
@@ -437,7 +437,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_idle_shutdown" {
   alarm_name          = "${local.instance_name}-cpu-idle-shutdown"
   alarm_description   = "Stop instance after 1 h CPU <= ${var.auto_shutdown_cpu_threshold}% (idle cost guard)"
   comparison_operator = "LessThanOrEqualToThreshold"
-  evaluation_periods  = 8
+  evaluation_periods  = 12
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
   period              = 3600

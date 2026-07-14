@@ -13,10 +13,10 @@
 # Sentinel comments make blocks safe to add and remove without touching anything else.
 #
 # Usage:
-#   ./scripts/manage-stacks.sh            interactive menu
-#   ./scripts/manage-stacks.sh list       print all stacks and exit
-#   ./scripts/manage-stacks.sh add        add a new stack (prompts)
-#   ./scripts/manage-stacks.sh remove     remove a stack (prompts)
+#   ./prep-scripts/manage-stacks.sh            interactive menu
+#   ./prep-scripts/manage-stacks.sh list       print all stacks and exit
+#   ./prep-scripts/manage-stacks.sh add        add a new stack (prompts)
+#   ./prep-scripts/manage-stacks.sh remove     remove a stack (prompts)
 #
 # After any change the script prints the source command -- run it (or open
 # a new terminal) to pick up the new aliases.

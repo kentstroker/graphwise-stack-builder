@@ -6,7 +6,7 @@ adf:
   enabled: true
   image:
     repository: ontotext/adf
-    tag: "1.8.2"
+    tag: "1.9.0"
   externalUrl: ""           # https://adf.<sub>.<base>
   keycloak:
     url: ""                 # https://auth.<sub>.<base>/
@@ -19,7 +19,7 @@ semantic-workbench:
   enabled: true
   image:
     repository: ontotext/semantic-workbench
-    tag: "2.4.2"
+    tag: "2.5.0"
   externalUrl: ""
   keycloak:
     url: ""
@@ -35,7 +35,7 @@ graphviews:
   enabled: true
   image:
     repository: ontotext/graphviews
-    tag: "1.0.0"
+    tag: "1.0.1"
   externalUrl: ""
   poolparty:
     internalUrl: "http://graphwise-stack-poolparty:8081"

@@ -91,13 +91,13 @@
 #   GRAPHWISE_USER   ec2-user (default)
 #
 # Usage:
-#   ./scripts/pull-config.sh
-#   ./scripts/pull-config.sh --download-dir ~/path/to/somewhere   (default: current directory)
-#   ./scripts/laptop/pull-config.sh --skip-secrets
-#   ./scripts/laptop/pull-config.sh --skip-licenses
-#   ./scripts/laptop/pull-config.sh --skip-cert
-#   ./scripts/laptop/pull-config.sh --skip-chart-values
-#   ./scripts/laptop/pull-config.sh --skip-dashboard
+#   ./prep-scripts/pull-config.sh
+#   ./prep-scripts/pull-config.sh --download-dir ~/path/to/somewhere   (default: current directory)
+#   ./prep-scripts/laptop/pull-config.sh --skip-secrets
+#   ./prep-scripts/laptop/pull-config.sh --skip-licenses
+#   ./prep-scripts/laptop/pull-config.sh --skip-cert
+#   ./prep-scripts/laptop/pull-config.sh --skip-chart-values
+#   ./prep-scripts/laptop/pull-config.sh --skip-dashboard
 #
 # Snapshot folder name includes $GRAPHWISE_HOST so snapshots from different
 # stacks are kept separate and push-config.sh --list shows them clearly.

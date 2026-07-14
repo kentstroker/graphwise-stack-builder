@@ -21,3 +21,11 @@ data:
 binaryData:
   # Graphwise brand logo, served as a static asset for the landing-page body.
   graphwise.png: {{ .Files.Get "files/graphwise.png" | b64enc }}
+  # Per-product logos for the "Start here" cards. Source files carry spaces
+  # in their names (product display names); ConfigMap keys can't contain
+  # spaces, so they're re-keyed to the URL-safe filenames the HTML references.
+  graph-modeling.png: {{ .Files.Get "files/Graph Modeling 300.png" | b64enc }}
+  graphdb.png: {{ .Files.Get "files/GraphDB 300.png" | b64enc }}
+  graph-automation.png: {{ .Files.Get "files/Graph Automation 300.png" | b64enc }}
+  semantic-analytics.png: {{ .Files.Get "files/Semantic Analytics 300.png" | b64enc }}
+  graphrag.png: {{ .Files.Get "files/GraphRAG 300.png" | b64enc }}

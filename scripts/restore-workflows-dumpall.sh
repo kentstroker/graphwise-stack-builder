@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# restore-n8n-dumpall.sh -- load the shipped n8n workflow database seed into the
-# (fresh, empty) n8n Postgres.
+# restore-workflows-dumpall.sh -- load the shipped workflow database seed into
+# the (fresh, empty) n8n Postgres.
 #
 # The n8n Postgres (CNPG cluster graphrag-postgres-n8n, graphrag ns) is freshly
 # initdb'd on every build, so there is nothing worth backing up: we just drop
 # any database that's there and load the seed. The seed is the plain-SQL
-# pg_dumpall that lives in the repo at
-#   $HOME/gsb/infra/terraform-subdomain/files/n8n-pg-dumpall.sql
+# pg_dumpall named
+#   $HOME/workflows-pg-dumpall-<date>-v<N>.sql
+# (e.g. $HOME/workflows-pg-dumpall-2026-07-13-v17.sql), placed in the EC2 home
+# root -- scp'd up by the operator, or produced by create-workflows-dumpall.sh.
+# If several dumps are present we load the NEWEST by the date + version embedded
+# in the filename (version sort), not mtime.
 #
 # Gated: if no matching file is present, this is a no-op (exit 0), so it
 # is safe to call unconditionally at the end of deploy-stack.sh.
@@ -21,9 +25,12 @@ NS=graphrag
 CLUSTER=graphrag-postgres-n8n
 DEPLOY=graphrag-workflows
 
-DUMP="$(ls -t "$HOME"/gsb/infra/terraform-subdomain/files/n8n-pg-dumpall.sql 2>/dev/null | head -1 || true)"
+# Discover the seed in the EC2 home root, newest by the date + version in the
+# filename (`sort -V | tail -1`). Nothing there -> no-op (n8n starts empty);
+# there is NO fallback -- the seed is not shipped in the repo/clone.
+DUMP="$(ls -1 "$HOME"/workflows-pg-dumpall*.sql 2>/dev/null | sort -V | tail -1 || true)"
 if [ -z "$DUMP" ] || [ ! -f "$DUMP" ]; then
-    echo "${YELLOW}restore-n8n-dumpall:${RESET} no \$HOME/gsb/infra/terraform-subdomain/files/n8n-pg-dumpall.sql found -- skipping (nothing to load)."
+    echo "${YELLOW}restore-workflows-dumpall:${RESET} no \$HOME/workflows-pg-dumpall*.sql found -- skipping (nothing to load)."
     exit 0
 fi
 
@@ -75,4 +82,4 @@ kubectl -n "$NS" exec "$PGPOD" -- env PGPASSWORD="$PGPW" psql -U postgres -d n8n
 echo "  scaling n8n back up..."
 kubectl -n "$NS" scale "deploy/$DEPLOY" --replicas=1
 kubectl -n "$NS" rollout status "deploy/$DEPLOY" --timeout=180s
-echo "${GREEN}restore-n8n-dumpall: done.${RESET}"
+echo "${GREEN}restore-workflows-dumpall: done.${RESET}"

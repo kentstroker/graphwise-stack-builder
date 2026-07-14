@@ -32,8 +32,8 @@ body {
   background: #f5f6f8; color: #1d1d1f; margin: 0; line-height: 1.5;
 }
 header {
-  background: linear-gradient(135deg, #0a2540 0%, #134e89 100%);
-  color: white; padding: 2rem 1.5rem; border-bottom: 4px solid #3b82f6;
+  background: linear-gradient(135deg, #00107F 0%, #0011FF 100%);
+  color: white; padding: 2rem 1.5rem; border-bottom: 4px solid #3399F0;
 }
 header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; letter-spacing: -0.01em; }
 header p { margin: 0; color: #a8b8d0; font-size: 0.95rem; }
@@ -60,16 +60,21 @@ section h2 {
   transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
 }
 .card:hover {
-  border-color: #3b82f6; box-shadow: 0 4px 14px rgba(59,130,246,0.15);
+  border-color: #DF367C; box-shadow: 0 4px 14px rgba(223,54,124,0.15);
   transform: translateY(-1px);
 }
-.card.primary { background: #eef6ff; border-color: #3b82f6; }
-.card.primary:hover { border-color: #1d4ed8; }
+.card.primary { background: #eef6ff; border-color: #3399F0; }
+.card.primary:hover { border-color: #DF367C; }
 .card .title { font-weight: 600; color: #0a2540; margin-bottom: 0.2rem; }
 .card .desc { font-size: 0.88rem; color: #4b5563; margin-bottom: 0.35rem; }
 .card .auth {
-  font-size: 0.76rem; color: #3b82f6;
+  font-size: 0.76rem; color: #3399F0;
   font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+/* Product logo shown top-center of a "Start here" pane. */
+.card .logo {
+  display: block; height: 48px; width: auto;
+  margin: 0.15rem auto 0.6rem; object-fit: contain;
 }
 footer {
   max-width: 1240px; margin: 0 auto; padding: 1rem 1.5rem;
@@ -90,7 +95,7 @@ header { display: flex; align-items: flex-start; justify-content: space-between;
   font: inherit; font-size: 0.8rem; padding: 0.3rem 0.85rem; cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.mode-toggle button.active { background: #ffffff; color: #0a2540; font-weight: 600; }
+.mode-toggle button.active { background: #DF367C; color: #ffffff; font-weight: 600; }
 body.demo-mode .card:not([data-demo]) { display: none; }
 body.demo-mode section:not([data-demo-section]) { display: none; }
 .cust-logo { max-height: 56px; max-width: 220px; object-fit: contain; }
@@ -124,24 +129,34 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
   <h2>Start here</h2>
   <div class="grid">
     <a class="card primary" data-demo href="https://poolparty.{{ $apex }}/PoolParty/">
+      <img class="logo" src="graph-modeling.png" alt="Graph Modeling">
       <div class="title">Graph Modeling</div>
       <div class="desc">Main authoring UI &mdash; taxonomies, concepts, projects</div>
       <div class="auth">SSO &middot; {{ .Values.credentials.poolparty }}</div>
     </a>
-    <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/">
-      <div class="title">GraphRAG Chatbot</div>
-      <div class="desc">Conversational interface backed by your taxonomy</div>
-      <div class="auth">SSO &middot; {{ .Values.credentials.graphragSso }}</div>
+    <a class="card primary" data-demo href="https://graphdb-projects.{{ $apex }}/">
+      <img class="logo" src="graphdb.png" alt="GraphDB">
+      <div class="title">GraphDB</div>
+      <div class="desc">Your data. Load repositories, run SPARQL here.</div>
+      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
     </a>
     <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/graphrag/workflows/">
-      <div class="title">Workflows (n8n)</div>
+      <img class="logo" src="graph-automation.png" alt="Graph Automation">
+      <div class="title">Graph Automation</div>
       <div class="desc">Pipeline editor; first visitor sets the owner account</div>
       <div class="auth">{{ .Values.credentials.n8n }}</div>
     </a>
-    <a class="card primary" href="https://graphdb-projects.{{ $apex }}/">
-      <div class="title">GraphDB &mdash; projects</div>
-      <div class="desc">Your data. Load repositories, run SPARQL here.</div>
-      <div class="auth">basic &middot; {{ .Values.credentials.basicAuth }}</div>
+    <a class="card primary" data-demo href="https://poolparty.{{ $apex }}/extractor/">
+      <img class="logo" src="semantic-analytics.png" alt="Semantic Analytics">
+      <div class="title">Semantic Analytics</div>
+      <div class="desc">Concept-extraction REST API &mdash; no UI</div>
+      <div class="auth">SSO bearer token required</div>
+    </a>
+    <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/">
+      <img class="logo" src="graphrag.png" alt="GraphRAG">
+      <div class="title">GraphRAG</div>
+      <div class="desc">Conversational interface backed by your taxonomy</div>
+      <div class="auth">SSO &middot; {{ .Values.credentials.graphragSso }}</div>
     </a>
   </div>
 </section>
@@ -164,11 +179,6 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
       <div class="title">GraphSearch</div>
       <div class="desc">Search frontend over Graph Modeling content</div>
       <div class="auth">SSO &middot; same user as Graph Modeling</div>
-    </a>
-    <a class="card" data-demo href="https://poolparty.{{ $apex }}/extractor/">
-      <div class="title">Extractor (REST)</div>
-      <div class="desc">Concept-extraction REST API &mdash; no UI</div>
-      <div class="auth">SSO bearer token required</div>
     </a>
     <a class="card" href="https://semantic-workbench.{{ $apex }}/SemanticWorkbench/">
       <div class="title">Semantic Workbench</div>

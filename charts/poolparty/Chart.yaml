@@ -15,7 +15,7 @@ description: |
   decoder strict-equality matches this against the issuer claim. See
   CLAUDE.md "OIDC issuer-match rule".
 type: application
-version: 2.0.0
+version: 2.1.0
 appVersion: "10.2.2"
 maintainers:
   - name: gsb

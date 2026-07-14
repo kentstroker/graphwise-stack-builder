@@ -7,12 +7,12 @@
 # Bookend to pull-config.sh: pull-config writes a dated snapshot under
 # graphwise-config-<host>-<UTC>/ in the current directory; this script
 # reads that snapshot and places its contents at the canonical paths the
-# downstream EC2 scripts expect. Run both scripts from your per-stack
+# downstream EC2 prep-scripts expect. Run both prep-scripts from your per-stack
 # Terraform folder. With no flags it auto-discovers the MOST RECENT
 # snapshot in the current directory -- the typical "I just did pull-config,
 # I'm rebuilding the EC2, push it back" flow is a single command:
 #
-#     ./scripts/laptop/push-config.sh
+#     ./prep-scripts/laptop/push-config.sh
 #
 # Why one tarball: each scp is a fresh SSH connection (handshake
 # latency, partial-failure mode per file). One tarball + one SSH means
@@ -46,15 +46,15 @@
 #   GRAPHWISE_USER   ec2-user (default)
 #
 # Usage:
-#   ./scripts/laptop/push-config.sh                   # auto-discover most recent snapshot for $GRAPHWISE_HOST
-#   ./scripts/laptop/push-config.sh --list            # list all available snapshots grouped by host
-#   ./scripts/laptop/push-config.sh --snapshot ./graphwise-config-<host>-<ts>
-#   ./scripts/laptop/push-config.sh --secrets-file ~/path/to/secrets.yaml
-#   ./scripts/laptop/push-config.sh --licenses-dir ~/path/to/licenses
-#   ./scripts/laptop/push-config.sh --skip-secrets
-#   ./scripts/laptop/push-config.sh --skip-licenses
-#   ./scripts/laptop/push-config.sh --skip-cert
-#   ./scripts/laptop/push-config.sh --keep-local-encryption-key
+#   ./prep-scripts/laptop/push-config.sh                   # auto-discover most recent snapshot for $GRAPHWISE_HOST
+#   ./prep-scripts/laptop/push-config.sh --list            # list all available snapshots grouped by host
+#   ./prep-scripts/laptop/push-config.sh --snapshot ./graphwise-config-<host>-<ts>
+#   ./prep-scripts/laptop/push-config.sh --secrets-file ~/path/to/secrets.yaml
+#   ./prep-scripts/laptop/push-config.sh --licenses-dir ~/path/to/licenses
+#   ./prep-scripts/laptop/push-config.sh --skip-secrets
+#   ./prep-scripts/laptop/push-config.sh --skip-licenses
+#   ./prep-scripts/laptop/push-config.sh --skip-cert
+#   ./prep-scripts/laptop/push-config.sh --keep-local-encryption-key
 #
 # Exit codes:
 #   0 -- all selected items pushed

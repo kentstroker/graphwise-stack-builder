@@ -6,22 +6,22 @@
 # convention as scp itself. The script expands ':path' to 'ec2-user@<host>:path'.
 #
 # Usage:
-#   ./scripts/stack-scp.sh [--stack <name>] [-r] <source> <dest>
+#   ./prep-scripts/stack-scp.sh [--stack <name>] [-r] <source> <dest>
 #
 # Examples:
-#   ./scripts/stack-scp.sh logo.png :~/logo.png
+#   ./prep-scripts/stack-scp.sh logo.png :~/logo.png
 #       push logo.png to the EC2 home directory (interactive stack picker)
 #
-#   ./scripts/stack-scp.sh :~/wildcard-tls.yaml ./
+#   ./prep-scripts/stack-scp.sh :~/wildcard-tls.yaml ./
 #       pull wildcard-tls.yaml from the EC2 to the current directory
 #
-#   ./scripts/stack-scp.sh --stack kstroker logo.png :~/logo.png
+#   ./prep-scripts/stack-scp.sh --stack kstroker logo.png :~/logo.png
 #       push to the kstroker stack without the picker
 #
-#   ./scripts/stack-scp.sh -r ./data :~/staging-data/
+#   ./prep-scripts/stack-scp.sh -r ./data :~/staging-data/
 #       recursive push (e.g. uploading a staging-data folder)
 #
-#   ./scripts/stack-scp.sh --stack stroker -r :~/gsb/files/ ./local-backup/
+#   ./prep-scripts/stack-scp.sh --stack stroker -r :~/gsb/files/ ./local-backup/
 #       recursive pull from a named stack
 #
 # Exit codes:

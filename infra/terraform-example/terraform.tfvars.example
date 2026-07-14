@@ -131,8 +131,3 @@ existing_eip_allocation_id = "eipalloc-CHANGEME"
    ownerOUId = "demo"
  }
 
-# Elasticsearch direct-access CIDR allowlist.
-# Empty list = SG rule not created; host :19200 unreachable externally.
-# No auth on this instance — restrict to trusted IPs only.
-# Example: elasticsearch_cidrs = ["198.51.100.42/32"]
-elasticsearch_cidrs = []

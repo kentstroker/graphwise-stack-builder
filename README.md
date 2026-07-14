@@ -683,7 +683,7 @@ then re-run `cluster-bootstrap.sh`.
 
 ### n8n workflow engine notes
 
-- n8n DB is restored from the known-good workflow dump committed at `infra/terraform-subdomain/files/n8n-pg-dumpall.sql`; `scripts/restore-n8n-dumpall.sh` reads it from the repo clone and loads it into the CNPG Postgres cluster.
+- n8n DB is restored from a workflow dump placed in the EC2 home root as `$HOME/workflows-pg-dumpall-<date>-v<N>.sql` (scp'd up by the operator, or produced on the box by `scripts/create-workflows-dumpall.sh`); `scripts/restore-workflows-dumpall.sh` loads the NEWEST such file into the CNPG Postgres cluster. No dump is shipped in the repo/clone — if none is present the restore is a no-op (n8n starts empty).
 - When restoring from a `pg_dumpall` dump, `DROP DATABASE n8n WITH (FORCE)` first — the dump has no `--clean` clause so old artifacts survive if you don't. `CREATE ROLE postgres/streaming_replica` lines error harmlessly (CNPG-managed roles already exist). Re-assert `ALTER ROLE n8n PASSWORD 'rdf#rocks'` + public grants after.
 - The n8n **Configuration** workflow's `poolPartyProjectId` and GraphDB paths must be updated for your deployment or every ingest workflow fails.
 
@@ -736,7 +736,8 @@ scripts/
                            maven registry auth
   validate-bootstrap.sh   Post-bootstrap health check
   validate-stack.sh       Post-reset-helm health check (pods, certs, OIDC, HTTPS)
-  restore-n8n-dumpall.sh  Load n8n workflow DB from pg_dumpall SQL
+  restore-workflows-dumpall.sh  Load workflow DB from newest $HOME/workflows-pg-dumpall*.sql
+  create-workflows-dumpall.sh   Snapshot live workflow DB -> $HOME/workflows-pg-dumpall-<date>.sql
   check-image-versions.sh Compare chart image tags vs Docker Hub; offer upgrades
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
   build-refine-image.sh   Build multi-arch Refine image from bundled dist

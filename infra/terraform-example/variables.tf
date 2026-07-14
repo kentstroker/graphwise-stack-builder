@@ -159,10 +159,8 @@ variable "auto_shutdown_enabled" {
   type        = bool
   default     = true
 }
-
-  variable "auto_shutdown_cpu_threshold" {
-    description = "CPU utilization % at-or-below which the auto-shutdown alarm fires (after 8 consecutive 1-hour periods = 8 h idle). Default 5 leaves headroom above baseline KIND + kube-system overhead (~1-2%) while still catching genuine idle."
-    type        = number
-    default     = 5
-  }
-
+variable "auto_shutdown_cpu_threshold" {
+  description = "CPU utilization % at-or-below which the auto-shutdown alarm fires (after 8 consecutive 1-hour periods = 8 h idle). Default 5 leaves headroom above baseline KIND + kube-system overhead (~1-2%) while still catching genuine idle."
+  type        = number
+  default     = 5
+}

@@ -4,7 +4,7 @@
 # Docker + KIND + kubectl + helm, single-node cluster up, repo cloned,
 # ~/graphwise-secrets.yaml seeded with placeholders, /etc/profile.d/
 # graphwise.sh exporting GRAPHWISE_APEX/ROUTE53_ZONE_ID/AWS_REGION.
-# Operators run scripts/cluster-bootstrap.sh next.
+# Operators run prep-scripts/cluster-bootstrap.sh next.
 #
 # Template substitutions: $${github_repo_url}, $${github_branch},
 # $${hostname_fqdn}, $${n8n_encryption_key}, $${route53_zone_id},
@@ -149,13 +149,13 @@ kubectl get nodes
 INNER
 
 echo "=== pip3: installing Python dependencies ==="
-# Python dependencies (system-wide, available to all scripts on this host).
+# Python dependencies (system-wide, available to all prep-scripts on this host).
 pip3 install --ignore-installed -r "/home/$TARGET_USER/gsb/requirements.txt"
 
 # Per-deployment secrets overlay -- single source of truth for ALL
 # operator-supplied secrets. EC2-local; never tracked in git.
 # reset-helm.sh auto-includes via -f and reads top-level maven block.
-# scripts/laptop/push-config.sh round-trips this across rebuilds.
+# prep-scripts/laptop/push-config.sh round-trips this across rebuilds.
 #
 # Loaded DYNAMICALLY: if the operator's real graphwise-secrets.yaml sits next
 # to the terraform files, Terraform inlines it (base64) and we write it
@@ -206,7 +206,7 @@ _wb64() {  # _wb64 <base64> <dest>  -- decode to dest (mode 600) if non-empty
 }
 _wb64 "${n8n_txt_b64}" "/home/$TARGET_USER/n8n.txt"
 
-# License blobs -> ~/gsb/files/licenses/ (where scripts/install-licenses.sh
+# License blobs -> ~/gsb/files/licenses/ (where prep-scripts/install-licenses.sh
 # reads them: REPO_ROOT/files/licenses). The gsb clone exists by now.
 mkdir -p "/home/$TARGET_USER/gsb/files/licenses"
 _wb64 "${poolparty_key_b64}"   "/home/$TARGET_USER/gsb/files/licenses/poolparty.key"
@@ -218,12 +218,12 @@ chown -R "$TARGET_USER:$TARGET_USER" "/home/$TARGET_USER/gsb/files" 2>/dev/null 
 # Optional: fully automated deploy (uncomment to run without operator input).
 # Requires all operator files to be present in the terraform folder so that
 # Terraform inlines them above (secrets, licenses). When commented out,
-# operators run scripts/deploy-stack.sh manually after first SSH login.
+# operators run prep-scripts/deploy-stack.sh manually after first SSH login.
 # ---------------------------------------------------------------------------
 # SUBDOMAIN="$${HOSTNAME_FQDN%%.*}"
 # BASE_DOMAIN="$${HOSTNAME_FQDN#*.}"
 # sudo -u "$TARGET_USER" -i bash -c \
-#     "cd ~/gsb && ./scripts/deploy-stack.sh \"$$SUBDOMAIN\" \"$$BASE_DOMAIN\""
+#     "cd ~/gsb && ./prep-scripts/deploy-stack.sh \"$$SUBDOMAIN\" \"$$BASE_DOMAIN\""
 
 # Sentinel for /etc/profile.d/graphwise-hint.sh (login-time hint silences once present).
 touch /var/lib/cloud/graphwise-bootstrap-complete

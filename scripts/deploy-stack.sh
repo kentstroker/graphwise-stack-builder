@@ -142,8 +142,8 @@ echo "${BOLD}[3/4] reset-helm.sh --yes ${SUB} ${BASE}${RESET}"
 # user-data.sh.tpl at cloud-init; this loads it into the fresh n8n Postgres.
 # ---------------------------------------------------------------------------
 echo
-echo "${BOLD}[4/4] restore-n8n-dumpall.sh${RESET}"
-"$SCRIPT_DIR/restore-n8n-dumpall.sh"
+echo "${BOLD}[4/4] restore-workflows-dumpall.sh${RESET}"
+"$SCRIPT_DIR/restore-workflows-dumpall.sh"
 
 echo
 echo "${BOLD}${GREEN}=== deploy-stack complete: https://${SUB}.${BASE}/ ===${RESET}"

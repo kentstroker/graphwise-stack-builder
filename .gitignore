@@ -33,11 +33,12 @@ crash.log
 # ...except the umbrella's own vendored deps, which ARE committed intentionally
 !charts/graphwise-stack/charts/*.tgz
 
-# --- n8n Postgres dumps: only the canonical shipped seed is tracked
-#     (restore-n8n-dumpall.sh reads it from the clone); dated/scratch
-#     dumps stay local ---
-infra/terraform-subdomain/files/*.sql
-!infra/terraform-subdomain/files/n8n-pg-dumpall.sql
+# --- workflow Postgres dumps: NEVER committed anywhere in the repo. The seed
+#     lives only on the EC2 home root ($HOME/workflows-pg-dumpall-<date>-v<N>.sql)
+#     -- scp'd up by the operator or made by create-workflows-dumpall.sh;
+#     restore-workflows-dumpall.sh loads the newest. ---
+**/workflows-pg-dumpall*.sql
+**/n8n-pg-dumpall*.sql
 
 # Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit
 refine/*.zip
