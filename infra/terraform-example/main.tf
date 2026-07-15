@@ -297,7 +297,10 @@ resource "aws_security_group" "stack" {
 # ---------------------------------------------------------------------------
 
 resource "aws_instance" "stack" {
-  ami                    = var.ami_override != "" ? var.ami_override : data.aws_ssm_parameter.al2023_arm64.value
+  # nonsensitive(): SSM parameter values are always flagged sensitive, but this
+  # public parameter just returns a public ami-... ID. Strip the flag here so it
+  # doesn't propagate to aws_instance.stack.ami or the ami_id output.
+  ami                    = var.ami_override != "" ? var.ami_override : nonsensitive(data.aws_ssm_parameter.al2023_arm64.value)
   instance_type          = var.instance_type
   key_name               = var.key_pair_name
   subnet_id              = data.aws_subnets.default.ids[0]
