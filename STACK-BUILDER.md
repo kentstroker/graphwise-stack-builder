@@ -88,7 +88,7 @@ field presales engineers; published MIT-licensed, AS-IS, no warranty, no support
 via cloud-init, and brings up a single-node Kubernetes cluster. Two `helm install`
 runs put the entire Graphwise suite in the cluster:
 
-- **PoolParty 10.2.2** — Thesaurus, GraphSearch, Extractor REST
+- **PoolParty 10.3.0** — Thesaurus, GraphSearch, Extractor REST
 - **GraphDB EE** (two instances: `embedded` for PoolParty, `projects` for federation demos)
 - **Elasticsearch** (PoolParty's semantic search backend)
 - **Keycloak** — SSO for PoolParty, ADF, Semantic Workbench, GraphRAG conversation
