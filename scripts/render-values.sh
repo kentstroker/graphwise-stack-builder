@@ -71,7 +71,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SUB="$1"
-BASE="${2:-semantic-demo.com}"
+BASE="${2:-gw-pse.com}"
 OUT_DIR="${OUT_DIR:-$HOME/.graphwise-stack}"
 
 # Apex + per-app hostnames.

@@ -34,7 +34,7 @@
 #
 # Without --yes, prompts before the destructive steps. Subdomain is
 # required so we can re-render the values overlay; base_domain defaults
-# to semantic-proof.com (matching scripts/render-values.sh).
+# to gw-pse.com (the GA standard, matching render-values.sh + deploy-stack.sh).
 #
 # Env overrides:
 #   RELEASE_NAME       (default: graphwise-stack)
@@ -117,7 +117,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SUB="$1"
-BASE="${2:-semantic-demo.com}"
+BASE="${2:-gw-pse.com}"
 
 # Belt-and-braces: validate the rendered components against RFC 1123
 # before we touch anything, so a typo can't get as far as a half-failed

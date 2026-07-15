@@ -22,8 +22,8 @@
 # Usage (on the EC2, from ~/gsb):
 #   ./scripts/deploy-stack.sh <subdomain> [base_domain]
 #
-# base_domain defaults to gw-pse.com (the GA standard). reset-helm.sh's own
-# default differs, so we pass base_domain through explicitly.
+# base_domain defaults to gw-pse.com (the GA standard) -- reset-helm.sh and
+# render-values.sh now default to the same; we still pass it through explicitly.
 #
 # Idempotent: every step is itself idempotent (helm upgrade --install,
 # create-or-replace Secrets). reset-helm is destructive to PVCs by design --
