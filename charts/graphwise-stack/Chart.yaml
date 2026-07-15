@@ -11,20 +11,20 @@ description: |
   Single source of truth for per-deployment values — `global.subdomain`
   and `global.baseDomain` cascade to every sub-chart.
 type: application
-version: 2.1.1
-appVersion: "2.1.1"
+version: 2.1.2
+appVersion: "2.1.2"
 maintainers:
   - name: gsb
     url: https://github.com/kentstroker/graphwise-stack-builder
 
 dependencies:
   - name: keycloak-realms
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../keycloak-realms
     condition: keycloak-realms.enabled
 
   - name: poolparty-elasticsearch
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../poolparty-elasticsearch
     condition: poolparty-elasticsearch.enabled
 
@@ -33,28 +33,28 @@ dependencies:
   # different aliases, different values.
   - name: graphdb
     alias: graphdb-embedded
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../graphdb
     condition: graphdb-embedded.enabled
 
   - name: graphdb
     alias: graphdb-projects
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../graphdb
     condition: graphdb-projects.enabled
 
   - name: poolparty
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../poolparty
     condition: poolparty.enabled
 
   - name: console
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../console
     condition: console.enabled
 
   - name: addons
-    version: 2.1.1
+    version: 2.1.2
     repository: file://../addons
     condition: addons.enabled
 

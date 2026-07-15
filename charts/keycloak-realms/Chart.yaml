@@ -21,8 +21,8 @@ description: |
   per-deployment subdomain so each teammate's realm points at their
   own URLs.
 type: application
-version: 2.1.1
-appVersion: "2.1.1"
+version: 2.1.2
+appVersion: "2.1.2"
 maintainers:
   - name: gsb
     url: https://github.com/kentstroker/graphwise-stack-builder
