@@ -23,7 +23,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: kindest/node:v1.36.1
+    image: kindest/node:v1.33.4
     # ingress-nginx in KIND looks for nodes labelled ingress-ready=true
     # to schedule its controller. With one node this is trivially the
     # control-plane.
