@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
-# check-image-versions.sh -- compare chart image versions against Docker Hub
+# check-image-versions.sh -- check, upgrade, and (optionally) apply container
+# image updates to a LIVE stack, in place, without a destroy.
 #
 # Reads current image tags from every chart values file, fetches the latest
 # published semver tag for each image from Docker Hub, displays a comparison
-# table, and offers to upgrade each outdated image interactively.
+# table, and offers to upgrade each outdated image interactively (editing the
+# chart values under ~/gsb/charts in place). After edits it runs
+# `helm dependency update` to rebuild the umbrella's bundled tarballs.
 #
-# After upgrades are applied it runs `helm dependency update` to rebuild
-# the umbrella's bundled tarballs.
+# With --apply it then rolls the running stack to the new images WITHOUT
+# destroying data: for each upgraded image it `docker pull`s the new tag and
+# `kind load`s it into the cluster, then does a non-destructive `helm upgrade`
+# of the graphwise-stack (umbrella) release -- every catalogued image lives in
+# that release -- reusing the deployment's existing values overlays. PVCs are
+# retained, so the upgrade is in-place.
 #
-# Run from: laptop (reads and writes ./charts/ in place)
-# Prerequisites: curl, jq
+# Run from: the EC2, in ~/gsb. Prerequisites: curl, jq; plus helm, docker,
+#   kind, kubectl and a deployed graphwise-stack release for --apply.
 #
-# Usage: scripts/check-image-versions.sh [--yes]
-#   --yes   apply all available upgrades without prompting
+# Usage: scripts/check-image-versions.sh [--yes] [--apply] [--timeout <dur>]
+#   --yes            accept all available upgrades without prompting
+#   --apply          after editing, roll the live stack (docker pull + kind
+#                    load + non-destructive helm upgrade of graphwise-stack)
+#   --timeout <dur>  helm upgrade timeout for --apply (default 15m)
 
 set -uo pipefail
 
@@ -21,9 +31,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
 AUTO_YES=0
+APPLY=0
+HELM_TIMEOUT="15m"
 while [ $# -gt 0 ]; do
     case "$1" in
-        --yes|-y) AUTO_YES=1; shift ;;
+        --yes|-y)  AUTO_YES=1; shift ;;
+        --apply)   APPLY=1; shift ;;
+        --timeout) HELM_TIMEOUT="${2:?--timeout requires a value (e.g. 15m)}"; shift 2 ;;
         -h|--help)
             sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
@@ -149,7 +163,7 @@ echo "${BOLD}${CYAN}Graphwise Stack — container image version check${RESET}"
 echo "${DIM}Querying Docker Hub for latest tags…${RESET}"
 echo ""
 
-declare -a LABELS CURRENT_TAGS LATEST_TAGS STATUSES IMG_NAMES IMG_TYPES
+declare -a LABELS CURRENT_TAGS LATEST_TAGS STATUSES IMG_NAMES IMG_TYPES IMG_NS
 
 for entry in "${IMAGES[@]}"; do
     IFS='|' read -r label ns img filter type <<< "$entry"
@@ -181,6 +195,7 @@ for entry in "${IMAGES[@]}"; do
     STATUSES+=("$status")
     IMG_NAMES+=("$img")
     IMG_TYPES+=("$type")
+    IMG_NS+=("$ns")
 done
 
 # ─── Phase 2: display summary table ──────────────────────────────────────────
@@ -218,6 +233,7 @@ echo "${YELLOW}${UPDATE_COUNT} update(s) available.${RESET}"
 # ─── Phase 3: interactive upgrade prompts ────────────────────────────────────
 ANY_UPGRADED=0
 NEEDS_DEP_UPDATE=0
+UPGRADED_REFS=()   # full docker refs (repo:tag) accepted this run, for --apply
 
 apply_standard_update() {
     local img="$1" old="$2" new="$3"
@@ -270,6 +286,7 @@ for i in "${!LABELS[@]}"; do
     new="${LATEST_TAGS[$i]}"
     img="${IMG_NAMES[$i]}"
     type="${IMG_TYPES[$i]}"
+    ns="${IMG_NS[$i]}"
 
     if [ "$AUTO_YES" -eq 1 ]; then
         answer="y"
@@ -288,6 +305,12 @@ for i in "${!LABELS[@]}"; do
             esac
             echo "  ${GREEN}✓${RESET} ${label} updated to ${new}"
             ANY_UPGRADED=1
+            # Full docker ref the pod pulls: library/* is bare, else <ns>/<img>.
+            if [ "$ns" = "library" ]; then
+                UPGRADED_REFS+=("${img}:${new}")
+            else
+                UPGRADED_REFS+=("${ns}/${img}:${new}")
+            fi
             ;;
         *)
             echo "  ${DIM}skipped${RESET}"
@@ -296,14 +319,105 @@ for i in "${!LABELS[@]}"; do
 done
 
 # ─── Phase 4: rebuild tarballs if anything changed ───────────────────────────
-if [ "$ANY_UPGRADED" -eq 1 ] && [ "$NEEDS_DEP_UPDATE" -eq 1 ] && [ "$HAVE_HELM" -eq 1 ]; then
+if [ "$ANY_UPGRADED" -eq 0 ]; then
+    echo ""
+    echo "No upgrades applied."
+    exit 0
+fi
+
+if [ "$NEEDS_DEP_UPDATE" -eq 1 ] && [ "$HAVE_HELM" -eq 1 ]; then
     echo ""
     echo "${CYAN}Rebuilding umbrella chart dependency tarballs…${RESET}"
     helm dependency update charts/graphwise-stack 2>&1 | grep -v "^$"
-    echo "${GREEN}Done.${RESET} Review changes with: git diff --stat"
-    echo ""
-    echo "Next: ${DIM}git add -p && git commit${RESET}"
-elif [ "$ANY_UPGRADED" -eq 0 ]; then
-    echo ""
-    echo "No upgrades applied."
+    echo "${GREEN}Done.${RESET}"
 fi
+
+# ─── Phase 5: (--apply) roll the live stack, non-destructively ───────────────
+if [ "$APPLY" -eq 0 ]; then
+    echo ""
+    echo "Edits saved to ./charts. Re-run with ${BOLD}--apply${RESET} to roll the live stack in place,"
+    echo "or ${DIM}git add -p && git commit${RESET} to persist the version bump."
+    exit 0
+fi
+
+echo ""
+echo "${BOLD}${CYAN}--apply: rolling the live stack to the new image(s)…${RESET}"
+
+UMBRELLA_RELEASE="${UMBRELLA_RELEASE:-graphwise-stack}"
+UMBRELLA_NS="${UMBRELLA_NAMESPACE:-graphwise}"
+KIND_CLUSTER="${KIND_CLUSTER:-graphwise}"
+VALUES_DIR="${VALUES_DIR:-$HOME/.graphwise-stack}"
+
+# Preconditions -- fail clearly, leaving the (already-saved) chart edits in place.
+for c in helm kubectl docker kind; do
+    command -v "$c" &>/dev/null || { echo "${RED}ERROR${RESET}: --apply needs '$c' in PATH." >&2; exit 1; }
+done
+if ! helm status "$UMBRELLA_RELEASE" -n "$UMBRELLA_NS" &>/dev/null; then
+    echo "${YELLOW}No deployed '$UMBRELLA_RELEASE' release in ns '$UMBRELLA_NS'.${RESET}" >&2
+    echo "  Chart edits + tarballs are saved; run reset-helm.sh / deploy-stack.sh to install first." >&2
+    exit 1
+fi
+
+# Locate the per-deployment umbrella values overlay (render-values.sh output).
+OVERLAY=""
+if [ -n "${GRAPHWISE_APEX:-}" ] && [ -f "$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml" ]; then
+    OVERLAY="$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml"
+else
+    _overlays=()
+    for m in "$VALUES_DIR"/values-*.yaml; do
+        [ -f "$m" ] || continue
+        case "$m" in *-graphrag.yaml) continue ;; esac
+        _overlays+=("$m")
+    done
+    if [ "${#_overlays[@]}" -eq 1 ]; then
+        OVERLAY="${_overlays[0]}"
+    else
+        echo "${RED}ERROR${RESET}: could not resolve a single umbrella values overlay in $VALUES_DIR (found ${#_overlays[@]})." >&2
+        echo "  Set GRAPHWISE_APEX=<sub>.<base>, or ensure exactly one values-<sub>.yaml exists." >&2
+        exit 1
+    fi
+fi
+echo "  ${DIM}overlay:${RESET} $OVERLAY"
+
+# 1) Pull each new image and load it into the KIND node's containerd, so the
+#    roll never hits an on-demand pull failure (ImagePullBackOff).
+echo ""
+echo "  ${BOLD}Pulling new image(s) into KIND ('$KIND_CLUSTER')…${RESET}"
+for ref in "${UPGRADED_REFS[@]}"; do
+    printf "    %-44s " "$ref"
+    if docker pull "$ref" >/dev/null 2>&1 && kind load docker-image "$ref" --name "$KIND_CLUSTER" >/dev/null 2>&1; then
+        echo "${GREEN}loaded${RESET}"
+    else
+        echo "${RED}FAILED${RESET}"
+        echo "${RED}ERROR${RESET}: could not pull/load $ref -- aborting before helm upgrade." >&2
+        exit 1
+    fi
+done
+
+# 2) Non-destructive helm upgrade, reusing the deployment's existing overlays.
+#    The new default image tags come from the rebuilt subchart tarballs; the
+#    overlays supply per-deployment hostnames/secrets. PVCs are retained.
+F_FLAGS=(-f "charts/graphwise-stack/values.yaml" -f "$OVERLAY")
+[ -f "$HOME/graphwise-secrets.yaml" ]      && F_FLAGS+=(-f "$HOME/graphwise-secrets.yaml")
+[ -f "$VALUES_DIR/console-branding.yaml" ] && F_FLAGS+=(-f "$VALUES_DIR/console-branding.yaml")
+
+echo ""
+echo "  ${BOLD}helm upgrade $UMBRELLA_RELEASE (PVCs retained — in-place)…${RESET}"
+if ! helm upgrade "$UMBRELLA_RELEASE" charts/graphwise-stack -n "$UMBRELLA_NS" "${F_FLAGS[@]}" --timeout "$HELM_TIMEOUT"; then
+    echo "${RED}ERROR${RESET}: helm upgrade failed. Inspect: kubectl -n $UMBRELLA_NS get pods" >&2
+    exit 1
+fi
+
+# 3) Wait for the affected workloads to roll (graphwise + graphdb namespaces).
+echo ""
+echo "  ${BOLD}Waiting for workloads to roll…${RESET}"
+for ns_watch in "$UMBRELLA_NS" graphdb; do
+    for r in $(kubectl -n "$ns_watch" get deploy,statefulset -o name 2>/dev/null); do
+        kubectl -n "$ns_watch" rollout status "$r" --timeout=240s 2>/dev/null || true
+    done
+done
+
+echo ""
+echo "${GREEN}${BOLD}Live stack updated to the new image(s).${RESET}"
+echo "  Verify:  ${DIM}kubectl get pods -A${RESET}"
+echo "  ${DIM}Persist the chart edits for future rebuilds: git add -p && git commit${RESET}"

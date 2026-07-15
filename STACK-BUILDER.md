@@ -746,7 +746,7 @@ scripts/
   validate-stack.sh       Post-reset-helm health check (pods, certs, OIDC, HTTPS)
   restore-workflows-dumpall.sh  Load workflow DB from newest $HOME/workflows-pg-dumpall*.sql
   create-workflows-dumpall.sh   Snapshot live workflow DB -> $HOME/workflows-pg-dumpall-<date>.sql
-  check-image-versions.sh Compare chart image tags vs Docker Hub; offer upgrades
+  check-image-versions.sh Check/upgrade image tags vs Docker Hub; --apply rolls the live stack
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
   build-refine-image.sh   Build multi-arch Refine image from bundled dist
 
@@ -773,7 +773,7 @@ This repo is MIT-licensed but ships without credentials or license files.
 
 ## Appendix: `scripts/` reference
 
-Every operational script lives under `scripts/` and runs **on the EC2 host** (as `ec2-user`) unless the **Runs on** column says *Laptop*. Many are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
+Every operational script lives under `scripts/` and runs **on the EC2 host** (as `ec2-user`). Many are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
 
 > The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `infra/terraform-example/scripts/` and are documented in the kit's `README.pdf`, not here.
 
@@ -803,7 +803,7 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | `register-n8n-api-key.sh` | EC2 | Register the seed's n8n public-API key so API-calling nodes don't 401 |
 | **Branding, images & utilities** | | |
 | `set-logo.sh` | EC2 | Base64-encode a customer logo into a gitignored console-branding overlay |
-| `check-image-versions.sh` | Laptop | Compare chart image tags vs Docker Hub; offer interactive upgrades |
+| `check-image-versions.sh` | EC2 | Check image tags vs Docker Hub, upgrade charts, and (`--apply`) roll the live stack in place |
 | `build-refine-image.sh` | EC2 | Build a multi-arch Refine image from the bundled dist and load it into KIND |
 
 ### Provisioning & deploy
@@ -867,7 +867,7 @@ Registers the seed's n8n public-API key in `public.user_api_keys` so nodes that 
 Base64-encodes a customer logo PNG into a persistent, gitignored Helm overlay (`$HOME/.graphwise-stack/console-branding.yaml`) so the console landing-page header shows it; `reset-helm.sh` includes the overlay automatically when present. Run with `--clear` to remove branding and revert to the unbranded header. Usage: `scripts/set-logo.sh <image-file> [customer-name]`.
 
 #### `check-image-versions.sh`
-**Laptop-side.** Reads the current image tag from every chart values file, fetches the latest published semver tag for each image from Docker Hub, prints a comparison table, and offers to upgrade each outdated image interactively; after applying it runs `helm dependency update` to rebuild the umbrella's bundled tarballs. Pass `--yes` to apply all upgrades non-interactively. Requires `curl` and `jq`.
+The in-place stack updater. Reads the current image tag from every chart values file, fetches the latest published semver tag for each image from Docker Hub, prints a comparison table, and offers to upgrade each outdated image interactively — editing the chart values under `~/gsb/charts` and rebuilding the umbrella's bundled tarballs (`helm dependency update`). With **`--apply`** it then rolls the *running* stack to the new images **without a destroy**: for each accepted upgrade it `docker pull`s the new tag and `kind load`s it into the cluster, then does a non-destructive `helm upgrade` of the `graphwise-stack` (umbrella) release — every catalogued image lives there — reusing the deployment's existing values overlays, so PVCs (and data) are retained. Without `--apply` it only edits the charts (re-run with `--apply`, or commit the bump). Flags: `--yes` (accept all), `--apply` (roll the live stack), `--timeout <dur>` (helm upgrade timeout, default 15m). Runs on the EC2; needs `curl`+`jq` (plus `helm`/`docker`/`kind`/`kubectl` for `--apply`).
 
 #### `build-refine-image.sh`
 Wraps the platform-independent Ontotext Refine ZIP (a pure-Java app, no native binaries) in an arm64-compatible JRE container and loads it into KIND as `graphwise-refine:local`. It exists because `ontotext/refine:1.2.x` on Docker Hub is amd64-only while the canonical deploy is AL2023 Graviton (arm64). The ZIP is gitignored (~330 MB vendor binary) — extract it once under `refine/ontorefine-1.2.1/`. Idempotent, and auto-run by `cluster-bootstrap.sh`.
