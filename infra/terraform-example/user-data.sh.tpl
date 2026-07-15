@@ -22,6 +22,17 @@ TARGET_USER="ec2-user"
 REPO_URL="${github_repo_url}"
 HOSTNAME_FQDN="${hostname_fqdn}"
 
+# Docker group FIRST -- before docker even installs. cloud-init runs for 10-15
+# min; adding ec2-user to the docker group only after the package install
+# (minutes in) means any SSH session opened before that -- and any `sg docker` /
+# `newgrp docker` self-heal run early -- has no group to join and can't reach
+# /var/run/docker.sock. Creating the group + adding ec2-user within seconds of
+# boot means a fresh login (or the scripts' `sg docker` self-heal) gets docker
+# access almost immediately. The docker package reuses this group; its socket is
+# group-owned by it.
+groupadd -f docker
+usermod -aG docker "$TARGET_USER"
+
 # Pinned tool versions. Bump deliberately; re-test the whole flow.
 KIND_VERSION="v0.30.0"
 KUBECTL_VERSION="v1.33.4"
@@ -55,9 +66,10 @@ fs.inotify.max_user_instances = 512
 SYSCTLEOF
 sysctl --system
 
-# Docker daemon + ec2-user in docker group (KIND/kubectl no-sudo).
+# Docker daemon up. (ec2-user was added to the docker group at the top, before
+# install, so even early SSH sessions get socket access after a fresh login.)
 systemctl enable --now docker
-usermod -aG docker "$TARGET_USER"
+usermod -aG docker "$TARGET_USER"   # idempotent re-assert (belt-and-braces)
 
 # kind / kubectl / helm (ARM64, pinned versions).
 ARCH="arm64"
@@ -133,7 +145,6 @@ if ! grep -q "KUBECONFIG=" "/home/$TARGET_USER/.bashrc" 2>/dev/null; then
 export KUBECONFIG="$HOME/.kube/config"
 alias kp='kubectl get pods -A'
 alias kga='kubectl get all --all-namespaces'
-alias showpods='kubectl get pods -A'
 alias bootlog='tail -f /var/log/bootstrap.log'
 RCEOF
     chown "$TARGET_USER:$TARGET_USER" "/home/$TARGET_USER/.bashrc"

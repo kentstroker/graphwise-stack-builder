@@ -9,6 +9,22 @@
 
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Docker-group self-reexec -- must be first (this script runs `docker run`).
+# cloud-init adds ec2-user to the docker group, but an SSH session opened
+# before that took effect lacks it in its process credentials. If we ARE a
+# docker-group member per /etc/group but the current process isn't yet, re-exec
+# once under `sg docker` so `docker run` below works -- no manual `newgrp
+# docker`. Guarded on membership so a pre-usermod run falls through to the
+# detailed preflight below (clear "add yourself / use sudo" message) rather than
+# a cryptic sg failure. Mirrors deploy-stack.sh / cluster-bootstrap.sh.
+if [[ "${_DOCKER_GROUP_REEXEC:-0}" != "1" ]] && ! docker info >/dev/null 2>&1 \
+   && getent group docker 2>/dev/null | grep -qw "$(id -un)"; then
+    echo "Docker socket not accessible -- re-launching under docker group (one-time)..."
+    export _DOCKER_GROUP_REEXEC=1
+    exec sg docker -c "bash $(realpath "${BASH_SOURCE[0]}") $(printf '%q ' "$@")"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEST="$REPO_ROOT/charts/keycloak-realms/files/poolparty-realm.json"
