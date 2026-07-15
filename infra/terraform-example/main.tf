@@ -37,38 +37,22 @@ data "aws_subnets" "default" {
   }
 }
 
-# Latest official Amazon Linux 2023 ARM64 AMI. AWS publishes these under
-# the "amazon" owner alias with a predictable name pattern. most_recent=true
-# gets you whatever they've published most recently.
+# Latest official Amazon Linux 2023 ARM64 AMI, via the AWS-maintained SSM
+# public parameter for the kernel-DEFAULT line. This always resolves to the
+# current default AL2023 ARM64 image; the parameter's `.value` IS the ami-... ID.
+#
+# Why not `data "aws_ami"` + most_recent: the name glob `al2023-ami-*-arm64`
+# also matches the `ecs-` (ECS-optimized) and `minimal-` variants, and whichever
+# AWS published most recently wins -- so most_recent could (and did) resolve to
+# the ECS AMI rather than the standard image. The SSM kernel-default pointer is
+# unambiguous and is exactly what AWS treats as "the latest AL2023".
 #
 # Migrated from Debian 13 in late 2026 after teammates hit consistent
 # "ssh fails immediately after scp" failures on Debian 13. The same SSH+scp
 # pattern works cleanly on AL2023 -- root cause appears to be a Debian 13
-# kernel/network-stack interaction with AWS Nitro that AL2023 doesn't
-# trigger.
-data "aws_ami" "al2023_arm64" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-arm64"]
-  }
-
-  filter {
-    name   = "architecture"
-    values = ["arm64"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  filter {
-    name   = "root-device-type"
-    values = ["ebs"]
-  }
+# kernel/network-stack interaction with AWS Nitro that AL2023 doesn't trigger.
+data "aws_ssm_parameter" "al2023_arm64" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
 }
 
 # n8n encryption key for the graphrag-workflows pod. Generated once
@@ -313,7 +297,7 @@ resource "aws_security_group" "stack" {
 # ---------------------------------------------------------------------------
 
 resource "aws_instance" "stack" {
-  ami                    = var.ami_override != "" ? var.ami_override : data.aws_ami.al2023_arm64.id
+  ami                    = var.ami_override != "" ? var.ami_override : data.aws_ssm_parameter.al2023_arm64.value
   instance_type          = var.instance_type
   key_name               = var.key_pair_name
   subnet_id              = data.aws_subnets.default.ids[0]
@@ -358,9 +342,9 @@ resource "aws_instance" "stack" {
   #   a full instance rebuild. Treat user-data as fire-once: any runtime
   #   config changes happen on-instance, not via Terraform.
   #
-  # - ami: data.aws_ami.al2023_arm64 uses most_recent = true. Without
-  #   ignore_changes, every AWS-published AL2023 AMI refresh (which
-  #   happens constantly) would mark the instance for force-replace --
+  # - ami: data.aws_ssm_parameter.al2023_arm64 resolves the current default
+  #   AL2023 AMI. Without ignore_changes, every AWS-published AL2023 AMI refresh
+  #   (which happens constantly) would mark the instance for force-replace --
   #   destroying the root EBS volume and every PVC on it -- on the next
   #   `terraform apply`, even when the user's intended change was tiny
   #   (SG, tags, etc.). We've lost a fully-validated demo deployment to

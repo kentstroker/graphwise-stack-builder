@@ -27,10 +27,23 @@ KIND_VERSION="v0.32.0"
 KUBECTL_VERSION="v1.36.2"
 HELM_VERSION="v3.21.3"
 
-# OS patches + packages (Docker, KIND networking deps, helper tools).
+# OS patches + helper tools. Docker itself comes from Docker CE below.
 dnf upgrade -y --refresh
-dnf install -y docker git jq bind-utils conntrack-tools ethtool socat \
+dnf install -y git jq bind-utils conntrack-tools ethtool socat \
     iproute httpd-tools tar gzip ca-certificates rsync python3 python3-pip htop
+
+# --- Docker Engine (Docker CE) from Docker's official repo -------------------
+# We deliberately do NOT use AL2023's bundled `docker` package: it ships an
+# older containerd (2.2.x) whose config-version support lags the containerd in
+# KIND's node image (2.3.x). That skew makes `kind load docker-image` fail with
+# "unknown containerd config version: 4 (supported versions: 2 and 3)". Docker CE
+# tracks upstream containerd, so the host containerd matches/leads the node's.
+# (dnf-plugins-core provides `dnf config-manager` on AL2023; device-mapper/lvm2
+# per Docker's docs -- overlay2 is the default storage driver.)
+dnf remove -y docker docker-common containerd runc 2>/dev/null || true
+dnf install -y dnf-plugins-core device-mapper-persistent-data lvm2
+dnf config-manager --add-repo https://download.docker.com/linux/amazonlinux/docker-ce.repo
+dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 # sshd: bump queue limits + force internal-sftp.
 mkdir -p /etc/ssh/sshd_config.d
