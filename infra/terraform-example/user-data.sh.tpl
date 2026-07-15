@@ -23,9 +23,9 @@ REPO_URL="${github_repo_url}"
 HOSTNAME_FQDN="${hostname_fqdn}"
 
 # Pinned tool versions. Bump deliberately; re-test the whole flow.
-KIND_VERSION="v0.30.0"
-KUBECTL_VERSION="v1.33.4"
-HELM_VERSION="v3.17.0"
+KIND_VERSION="v0.32.0"
+KUBECTL_VERSION="v1.36.2"
+HELM_VERSION="v3.21.3"
 
 # OS patches + packages (Docker, KIND networking deps, helper tools).
 dnf upgrade -y --refresh
@@ -126,7 +126,7 @@ if ! grep -q "KUBECONFIG=" "/home/$TARGET_USER/.bashrc" 2>/dev/null; then
     cat >> "/home/$TARGET_USER/.bashrc" <<'RCEOF'
 
 export KUBECONFIG="$HOME/.kube/config"
-alias k=kubectl
+alias kp='kubectl get pods -A'
 alias kga='kubectl get all --all-namespaces'
 alias showpods='kubectl get pods -A'
 alias bootlog='tail -f /var/log/bootstrap.log'
