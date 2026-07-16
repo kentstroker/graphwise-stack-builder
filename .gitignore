@@ -42,3 +42,6 @@ crash.log
 
 # Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit
 refine/*.zip
+
+# local kubectl/command scratchpad (never commit)
+/foo
