@@ -8,7 +8,7 @@
 
 image:
   repository: ontotext/poolparty
-  tag: "10.3.0"
+  tag: "10.2.2"
   pullPolicy: IfNotPresent
 
 # License Secret — created by scripts/install-licenses.sh.
