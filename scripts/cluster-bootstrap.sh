@@ -508,7 +508,7 @@ kubectl -n keycloak apply -f "https://raw.githubusercontent.com/keycloak/keycloa
 # cluster's node containers avoids the KIND nodes trying to pull from
 # Docker Hub on every cluster recreate (and lets us pin by digest in
 # values.yaml without needing a private registry).
-KEYCLOAK_RUNTIME_IMAGE="${KEYCLOAK_RUNTIME_IMAGE:-ontotext/poolparty-keycloak:latest}"
+KEYCLOAK_RUNTIME_IMAGE="${KEYCLOAK_RUNTIME_IMAGE:-ontotext/poolparty-keycloak:2.5.0}"
 KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-graphwise}"
 docker pull "$KEYCLOAK_RUNTIME_IMAGE"
 kind load docker-image "$KEYCLOAK_RUNTIME_IMAGE" --name "$KIND_CLUSTER_NAME"

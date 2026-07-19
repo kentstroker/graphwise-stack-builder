@@ -150,7 +150,12 @@ keycloak:
   # that with this stack unless you know you're testing the gap.
   # Pre-loaded into KIND by cluster-bootstrap.sh so this name doesn't
   # need to be reachable from inside the cluster.
-  image: "ontotext/poolparty-keycloak:latest"
+  # Pinned to 2.5.0: this tag ships the 10.3 multi-client realm (ppt/ppgs/
+  # extractor/recommender/graphdb) that poolparty:10.3.0's role migration
+  # requires. Its Keycloak server is still 25.0.6, matching the operator pin
+  # in cluster-bootstrap.sh -- no operator bump needed. Do NOT float on
+  # :latest (Docker Hub :latest is a stale 2.1.x/single-client realm).
+  image: "ontotext/poolparty-keycloak:2.5.0"
   postgres:
     name: keycloak-postgres
     instances: 1

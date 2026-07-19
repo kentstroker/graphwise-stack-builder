@@ -20,7 +20,10 @@ Why this is needed:
 How it works:
   1. ConfigMap built at chart render time -- iterates the realm JSON
      for clients with authorizationSettings, emits one /authz/<id>.json
-     key per such client (currently just "ppt").
+     key per such client. In the 10.3 realm (poolparty-keycloak:2.5.0)
+     that is ppt, ppgs, and extractor; pre-10.3 it was just ppt. This
+     loop is data-driven, so no code change is needed as the client set
+     grows -- only the realm JSON.
   2. Job mounts the ConfigMap, gets an admin token via password grant
      against master realm (using poolparty-auth-admin Secret created
      by the umbrella's keycloak-bootstrap-admin-job.yaml), then for

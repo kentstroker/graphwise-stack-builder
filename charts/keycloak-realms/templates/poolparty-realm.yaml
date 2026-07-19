@@ -24,9 +24,18 @@ poolparty realm export gains more redirectUris.
 */}}
 {{- $ppHost := printf "https://poolparty.%s.%s" .Values.subdomain .Values.baseDomain -}}
 {{- $authHost := printf "https://auth.%s.%s" .Values.subdomain .Values.baseDomain -}}
+{{- $graphdbHost := printf "https://graphdb.%s.%s" .Values.subdomain .Values.baseDomain -}}
 {{- $rewritten := $realmJsonRaw -}}
 {{- $rewritten = $rewritten | replace "https://localhost.127.0.0.1.nip.io" $ppHost -}}
 {{- $rewritten = $rewritten | replace "http://localhost.127.0.0.1.nip.io" $ppHost -}}
+{{/*
+The 10.3 realm's `graphdb` OIDC client uses a ${GRAPHDB_PUBLIC_URL} placeholder
+for rootUrl/baseUrl (extract-poolparty-realm.sh deliberately leaves it — it is
+per-deployment). Point it at the embedded GraphDB subdomain so the imported
+client has a valid URL. GraphDB→PoolParty OAuth login itself is deferred
+(Phase 3); this only avoids a literal placeholder surviving into Keycloak.
+*/}}
+{{- $rewritten = $rewritten | replace "${GRAPHDB_PUBLIC_URL}" $graphdbHost -}}
 {{- $realmObj := $rewritten | fromJson -}}
 apiVersion: k8s.keycloak.org/v2alpha1
 kind: KeycloakRealmImport

@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEST="$REPO_ROOT/charts/keycloak-realms/files/poolparty-realm.json"
 
-IMAGE="${POOLPARTY_KEYCLOAK_IMAGE:-ontotext/poolparty-keycloak:latest}"
+IMAGE="${POOLPARTY_KEYCLOAK_IMAGE:-ontotext/poolparty-keycloak:2.5.0}"
 
 # ---------------------------------------------------------------------------
 # Preflight: docker must be on PATH and the current shell must be able to
@@ -169,42 +169,64 @@ docker run --rm --entrypoint=sh "$IMAGE" -c "cat $found_json" > "$DEST"
 # Fix: rewrite the realm export at extract time so the values match what
 # PoolParty's image actually sends.
 #
-# Image-version coupling: POOLPARTY_KEYCLOAK_LOGIN_CLIENTSECRET is read
-# from the PoolParty container env. As of poolparty:10.x, the value is
-# ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb5. If a future image bumps it, update
-# the value below by inspecting `kubectl exec ... env | grep CLIENTSECRET`
-# on a running PoolParty pod.
+# Image-version coupling: as of the 10.3 platform (poolparty-keycloak:2.5.0),
+# the realm defines a SEPARATE Keycloak client per service, each with its own
+# ${..._KEYCLOAK_LOGIN_CLIENTSECRET} placeholder:
+#   ppt (Graph Modeling), ppgs (GraphSearch), extractor (PPX), recommender.
+# (Pre-10.3 realms used a single ${POOLPARTY_KEYCLOAK_LOGIN_CLIENTSECRET}.)
+# The values below are the PoolParty image's built-in defaults (see the
+# compose-files .env_template @ v1.3.0). They must match what each PoolParty
+# component sends; the ppt value also matches charts/poolparty/values.yaml
+# keycloak.loginClientSecret. If a future image bumps any of them, update here
+# (inspect `kubectl exec ... env | grep CLIENTSECRET` on the running pod).
 #
 # (The companion fix is the post-install authz-import Job in
-# charts/keycloak-realms/templates/keycloak-authz-import-job.yaml --
-# the operator's RealmImport CR drops the .clients[].authorizationSettings
-# block; the Job re-imports it via the Keycloak admin REST API.)
+# charts/keycloak-realms/templates/keycloak-authz-import-job.yaml -- the
+# operator's RealmImport CR drops the .clients[].authorizationSettings block
+# for every client; that Job re-imports it for each client that has one
+# (ppt + ppgs + extractor in the 10.3 realm).)
 PPT_SECRET="ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb5"
+PPGS_SECRET="ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb52"
+EXTRACTOR_SECRET="ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb53"
+RECOMMENDER_SECRET="ohIP3x4XuoCsGDsGlZRvNvO5VN6veFb54"
 SUPERADMIN_PASSWORD="poolparty"
 
 echo
 echo "Substituting Ontotext placeholders..."
 TMP=$(mktemp)
-jq --arg ppt_secret "$PPT_SECRET" --arg superadmin_pw "$SUPERADMIN_PASSWORD" '
-    (.clients[]? | select(.clientId == "ppt") | .secret) = $ppt_secret
+jq --arg ppt "$PPT_SECRET" --arg ppgs "$PPGS_SECRET" --arg extractor "$EXTRACTOR_SECRET" \
+   --arg recommender "$RECOMMENDER_SECRET" --arg superadmin_pw "$SUPERADMIN_PASSWORD" '
+    (.clients[]? | select(.clientId == "ppt")         | .secret) = $ppt
+    | (.clients[]? | select(.clientId == "ppgs")        | .secret) = $ppgs
+    | (.clients[]? | select(.clientId == "extractor")   | .secret) = $extractor
+    | (.clients[]? | select(.clientId == "recommender") | .secret) = $recommender
     | (.users[]? | select(.username == "superadmin") | .credentials[0].value) = $superadmin_pw
     | (.users[]? | select(.username == "superadmin") | .credentials[0].temporary) = false
 ' "$DEST" > "$TMP" && mv "$TMP" "$DEST"
-echo "  ppt.secret      -> ohIP...eFb5  (matches PoolParty image)"
-echo "  superadmin pw   -> poolparty   (temporary=false)"
+echo "  ppt/ppgs/extractor/recommender .secret -> ohIP...eFb5[/2/3/4]  (match PoolParty image)"
+echo "  superadmin pw                          -> poolparty   (temporary=false)"
 
 # Belt-and-braces global sweep for any OTHER occurrence of the same
 # placeholders. The targeted jq above hits the load-bearing paths
-# (ppt.secret + superadmin password), but the same env-var-style
+# (each client's .secret + superadmin password), but the same env-var-style
 # placeholders also appear in client attributes / web origins /
 # protocolMapper config in some image versions, and the operator-
 # managed KeycloakRealmImport CR doesn't expand them. Leftover
-# `${POOLPARTY_*}` strings break the realm import silently. Global
-# sed is safe -- the placeholder syntax is unambiguous and the value
-# is identical wherever it appears.
+# `${...}` strings break the realm import silently. Global sed is safe --
+# the placeholder syntax is unambiguous and each value is identical
+# wherever it appears.
+sed -i "s|\${PPT_KEYCLOAK_LOGIN_CLIENTSECRET}|$PPT_SECRET|g" "$DEST"
+sed -i "s|\${PPGS_KEYCLOAK_LOGIN_CLIENTSECRET}|$PPGS_SECRET|g" "$DEST"
+sed -i "s|\${EXTRACTOR_KEYCLOAK_LOGIN_CLIENTSECRET}|$EXTRACTOR_SECRET|g" "$DEST"
+sed -i "s|\${RECOMMENDER_KEYCLOAK_LOGIN_CLIENTSECRET}|$RECOMMENDER_SECRET|g" "$DEST"
+# pre-10.3 single-client placeholder name (harmless if absent).
 sed -i "s|\${POOLPARTY_KEYCLOAK_LOGIN_CLIENTSECRET}|$PPT_SECRET|g" "$DEST"
 sed -i "s|\${POOLPARTY_SUPER_ADMIN_PASSWORD}|$SUPERADMIN_PASSWORD|g" "$DEST"
-remaining=$(grep -oE '\$\{POOLPARTY_[A-Z_]+\}' "$DEST" | sort -u || true)
+# ${GRAPHDB_PUBLIC_URL} is per-deployment (the graphdb subdomain) and is
+# substituted at Helm render time in charts/keycloak-realms/templates/
+# poolparty-realm.yaml, so it is EXPECTED to remain here -- exclude it from
+# the leftover check. Anything else surviving is a real gap.
+remaining=$(grep -oE '\$\{[A-Z_]+\}' "$DEST" | grep -vF '${GRAPHDB_PUBLIC_URL}' | sort -u || true)
 if [[ -n "$remaining" ]]; then
     echo "  WARNING: leftover \${...} placeholders the script doesn't know how to substitute:"
     echo "$remaining" | sed 's/^/    /'
