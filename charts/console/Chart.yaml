@@ -12,8 +12,8 @@ description: |
   The HTML self-adapts: JS rewrites every reference hostname to
   window.location.hostname, so no per-deployment editing is needed.
 type: application
-version: 2.2.1
-appVersion: "2.2.1"
+version: 2.2.2
+appVersion: "2.2.2"
 maintainers:
   - name: gsb
     url: https://github.com/kentstroker/graphwise-stack-builder
