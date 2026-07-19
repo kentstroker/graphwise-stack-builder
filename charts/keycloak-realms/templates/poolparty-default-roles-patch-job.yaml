@@ -6,21 +6,22 @@ in the poolparty realm automatically has login authorization for the
 `ppt` client.
 
 Why this exists:
-  The realm export from `ontotext/poolparty-keycloak` ships a
-  `default-roles-poolparty` composite that includes only the standard
-  Keycloak defaults (`uma_authorization`, `offline_access`) -- NOT
-  PoolPartyUser. The vendor's expected user-creation flow is LDAP-
-  driven: their `poolparty-default-role-ldap-mapper` SPI tags incoming
-  LDAP users with the right realm role. Users created directly in
-  Keycloak (admin UI, kcadm, PoolParty's own admin UI which proxies
-  the Keycloak admin REST API) fall outside that flow and end up with
-  no PoolParty-authorizing role -- they authenticate fine but hit
+  10.3 "role isolation" (poolparty-keycloak:2.5.0) moved the PoolParty
+  authorization roles from REALM roles to per-CLIENT roles (ppt/ppgs/
+  extractor each define PoolPartyUser/Admin/ReadOnly/SuperAdmin), and the
+  realm's `default-roles-poolparty` composite now ships EMPTY. Users
+  created directly in Keycloak (admin UI, kcadm, PoolParty's own admin UI
+  which proxies the Keycloak admin REST API) therefore inherit no
+  PoolParty-authorizing role -- they authenticate fine but hit
   `403 access_denied / not_authorized` from PoolParty's UMA layer.
+  (Pre-10.3 realms shipped a single `PoolPartyUser` REALM role; the
+  vendor's expected flow was LDAP-driven via a default-role SPI mapper.)
 
-  This Job runs `POST /admin/realms/poolparty/roles/default-roles-
-  poolparty/composites` with the configured role (default
-  `PoolPartyUser`), making it implicit for every new local user. POST
-  is idempotent: re-adding a role to a composite no-ops with HTTP 204.
+  This Job composes the realm role `local-user` plus the client role
+  `PoolPartyUser` on each of ppt/ppgs/extractor into
+  `default-roles-poolparty` (the realm default role auto-assigned to
+  every new user), mirroring how the chart-seeded `superadmin` is
+  authorized. POST is idempotent: re-adding a member no-ops with 204.
 
 Auth flow (mirrors graphrag-realm-patch-job.yaml):
   1. Wait for /realms/poolparty/.well-known/openid-configuration so we
@@ -31,8 +32,9 @@ Auth flow (mirrors graphrag-realm-patch-job.yaml):
      safe to re-run, no-ops on already-wired roles). Without this the
      temp-admin token doesn't carry manage-realm rights on poolparty.
   4. Refresh the token so the new roles appear in the JWT.
-  5. GET the role we want to compose (defaults to PoolPartyUser) and
-     POST it to the default-roles-poolparty composite.
+  5. Resolve local-user (realm role) + PoolPartyUser on each of
+     ppt/ppgs/extractor (client roles) and POST them as one array to
+     the default-roles-poolparty composite.
 
 Hook semantics:
   - post-install,post-upgrade: runs on every install + upgrade.
@@ -87,6 +89,10 @@ spec:
               value: "default-roles-poolparty"
             - name: COMPOSE_ROLE
               value: {{ .Values.poolparty.defaultUserRole | default "PoolPartyUser" | quote }}
+            - name: REALM_ROLE
+              value: {{ .Values.poolparty.defaultUserRealmRole | default "local-user" | quote }}
+            - name: CLIENT_IDS
+              value: {{ .Values.poolparty.defaultUserClients | default (list "ppt" "ppgs" "extractor") | join " " | quote }}
           command:
             - /bin/sh
             - -ec
@@ -144,29 +150,65 @@ spec:
               # 4. Refresh the token so the new composite roles appear.
               TOKEN=$(get_token)
 
-              # 5. GET the role we want to compose, wrap it cleanly in a
-              # single-element JSON array with `jq -s`, POST to the
-              # composite. POST is idempotent: re-adding an existing
-              # composite member returns 204. Earlier version of this
-              # block built the body with shell string interpolation
-              # (`-d "[ $ROLE_REPR ]"`) and did not check the response
-              # code; multi-line JSON inside the quoted shell expansion
-              # silently malformed the body, the server returned 400,
-              # and Helm still saw the Job as succeeded because curl's
-              # exit code is 0 for completed-with-HTTP-error.
-              echo "Composing '$COMPOSE_ROLE' into '$DEFAULT_COMPOSITE' on realm '$REALM'..."
-              ROLE_REPR=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-                  "$KC_SERVER/admin/realms/$REALM/roles/$COMPOSE_ROLE")
-              if [ -z "$ROLE_REPR" ] || [ "$(echo "$ROLE_REPR" | jq -r .name)" != "$COMPOSE_ROLE" ]; then
-                  echo "ERROR: realm role '$COMPOSE_ROLE' not found in '$REALM' (realm import incomplete or role name typo'd?)" >&2
+              # 5. Compose default authorization into the (empty) realm
+              # default role. 10.3 "role isolation" moved PoolParty* from
+              # realm roles to per-client roles (ppt/ppgs/extractor) and
+              # ships `default-roles-poolparty` empty, so we compose:
+              #   - the realm role $REALM_ROLE (local-user), plus
+              #   - the client role $COMPOSE_ROLE (PoolPartyUser) on each
+              #     client in $CLIENT_IDS
+              # into $DEFAULT_COMPOSITE -- mirroring how the seeded
+              # `superadmin` is authorized. We build ONE JSON array of role
+              # representations and POST it (composite reps need the client
+              # UUID as containerId, so a client role can't be added by name
+              # alone). POST is idempotent: re-adding an existing member is a
+              # 204 no-op. Response code IS checked -- curl exits 0 on an
+              # HTTP error, so an unchecked POST would let Helm see a false
+              # success.
+              echo "Composing default authorization into '$DEFAULT_COMPOSITE' (realm '$REALM')..."
+              REPS='[]'
+
+              # realm role (local-user)
+              RR=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                  "$KC_SERVER/admin/realms/$REALM/roles/$REALM_ROLE" || true)
+              if [ -n "$RR" ] && [ "$(echo "$RR" | jq -r .name)" = "$REALM_ROLE" ]; then
+                  REPS=$(echo "$REPS" | jq --argjson r "$RR" '. + [$r]')
+                  echo "  + realm role '$REALM_ROLE'"
+              else
+                  echo "  WARN: realm role '$REALM_ROLE' not found -- skipping" >&2
+              fi
+
+              # client role (PoolPartyUser) on each configured client
+              for CID in $CLIENT_IDS; do
+                  CUUID=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                      "$KC_SERVER/admin/realms/$REALM/clients?clientId=$CID" \
+                      | jq -r '.[0].id // empty')
+                  if [ -z "$CUUID" ]; then
+                      echo "  WARN: client '$CID' not found -- skipping" >&2
+                      continue
+                  fi
+                  CR=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                      "$KC_SERVER/admin/realms/$REALM/clients/$CUUID/roles/$COMPOSE_ROLE" || true)
+                  if [ -n "$CR" ] && [ "$(echo "$CR" | jq -r .name)" = "$COMPOSE_ROLE" ]; then
+                      REPS=$(echo "$REPS" | jq --argjson r "$CR" '. + [$r]')
+                      echo "  + client role '$CID:$COMPOSE_ROLE'"
+                  else
+                      echo "  WARN: client role '$CID:$COMPOSE_ROLE' not found -- skipping" >&2
+                  fi
+              done
+
+              N=$(echo "$REPS" | jq 'length')
+              if [ "$N" = "0" ]; then
+                  echo "ERROR: no roles resolved to compose into '$DEFAULT_COMPOSITE' -- realm import incomplete, or the vendor role model changed again? Inspect the realm's roles + clients." >&2
                   exit 1
               fi
-              echo "$ROLE_REPR" | jq -s '.' > /tmp/compose.json
+
+              echo "$REPS" > /tmp/compose.json
               HTTP=$(curl -s -o /tmp/compose.resp -w '%{http_code}' \
                   -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
                   "$KC_SERVER/admin/realms/$REALM/roles/$DEFAULT_COMPOSITE/composites" \
                   --data-binary @/tmp/compose.json)
-              echo "  compose POST -> HTTP $HTTP"
+              echo "  compose POST ($N role(s)) -> HTTP $HTTP"
               if [ "$HTTP" != "204" ] && [ "$HTTP" != "201" ]; then
                   echo "ERROR: composite POST failed. Response body:" >&2
                   cat /tmp/compose.resp >&2
@@ -174,9 +216,8 @@ spec:
                   exit 1
               fi
 
-              # 6. Verify the composite now actually contains the role
-              # (defense-in-depth against future server-side behaviour
-              # changes that swallow the POST silently).
+              # 6. Verify the composite now actually contains the client
+              # role (defense-in-depth against a silently-swallowed POST).
               if ! curl -sf -H "Authorization: Bearer $TOKEN" \
                       "$KC_SERVER/admin/realms/$REALM/roles/$DEFAULT_COMPOSITE/composites" \
                       | jq -e --arg n "$COMPOSE_ROLE" 'map(.name) | index($n)' >/dev/null; then
@@ -184,6 +225,6 @@ spec:
                   exit 1
               fi
 
-              echo "Done. New users in '$REALM' will inherit '$COMPOSE_ROLE' via '$DEFAULT_COMPOSITE'."
+              echo "Done. New users in '$REALM' inherit '$REALM_ROLE' + '$COMPOSE_ROLE' (on: $CLIENT_IDS) via '$DEFAULT_COMPOSITE'."
               PATCH_EOF
 {{- end }}

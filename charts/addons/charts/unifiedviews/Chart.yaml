@@ -2,5 +2,5 @@ apiVersion: v2
 name: unifiedviews
 description: UnifiedViews ETL pipeline platform. Mirrors today's addons.yaml unified-views service.
 type: application
-version: 2.2.0
+version: 2.2.1
 appVersion: "10.2.3"

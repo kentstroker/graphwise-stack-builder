@@ -43,12 +43,23 @@ graphrag:
 # installs successfully, but PoolParty will have no realm to bind to).
 poolparty:
   enabled: true
-  # Realm role composed into `default-roles-poolparty` so every newly-
-  # created Keycloak user automatically gets login authorization for
-  # the `ppt` client without an admin having to grant a role per user.
-  # Default `PoolPartyUser` is the minimum-privilege login-capable role
-  # (`PoolPartyReadOnly` doesn't satisfy the UMA policies; `local-user`
-  # alone gets a 403 / not_authorized). Set to `PoolPartySuperAdmin`
-  # if you want every demo user to be a super-admin out of the gate.
-  # See poolparty-default-roles-patch-job.yaml for the wiring.
+  # 10.3 "role isolation": PoolParty authorization roles moved from realm
+  # roles to per-client roles (ppt/ppgs/extractor), and the realm's
+  # `default-roles-poolparty` composite now ships EMPTY -- so new locally-
+  # created Keycloak users inherit no PoolParty authorization and hit
+  # 403 / not_authorized. poolparty-default-roles-patch-job.yaml composes,
+  # into `default-roles-poolparty` (the realm default role auto-assigned to
+  # every new user):
+  #   - the realm role `defaultUserRealmRole` (local-user), and
+  #   - the client role `defaultUserRole` (PoolPartyUser) on each client in
+  #     `defaultUserClients`.
+  # This mirrors how the chart-seeded `superadmin` is authorized (local-user
+  # + per-client PoolParty* roles). `PoolPartyUser` is the minimum-privilege
+  # login-capable role; set `defaultUserRole: PoolPartySuperAdmin` to make
+  # every demo user a super-admin out of the gate.
   defaultUserRole: PoolPartyUser
+  defaultUserRealmRole: local-user
+  defaultUserClients:
+    - ppt
+    - ppgs
+    - extractor

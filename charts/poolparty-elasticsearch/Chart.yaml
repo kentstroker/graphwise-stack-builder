@@ -11,7 +11,7 @@ description: |
   xpack.security.enabled=false. Demo-grade — no auth, no TLS,
   no production tuning. ClusterIP-only; never exposed via Ingress.
 type: application
-version: 2.2.0
+version: 2.2.1
 appVersion: "9.3.3"
 maintainers:
   - name: gsb
