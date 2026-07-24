@@ -691,7 +691,7 @@ then re-run `cluster-bootstrap.sh`.
 
 ### n8n workflow engine notes
 
-- n8n DB is restored from a workflow dump placed in the EC2 home root as `$HOME/workflows-pg-dumpall-<date>-v<N>.sql` (scp'd up by the operator, or produced on the box by `scripts/create-workflows-dumpall.sh`); `scripts/restore-workflows-dumpall.sh` loads the NEWEST such file into the CNPG Postgres cluster. No dump is shipped in the repo/clone — if none is present the restore is a no-op (n8n starts empty).
+- n8n DB is restored from a workflow dump placed in the EC2 home root under the freeform glob `$HOME/workflows*.sql` — name the wildcard portion for that deployment's use case, e.g. `workflows-acme-demo.sql` (scp'd up by the operator, or produced on the box by `scripts/create-workflows-dumpall.sh`, whose auto-name `workflows-pg-dumpall-<date>.sql` also matches). `scripts/restore-workflows-dumpall.sh` loads the NEWEST match **by mtime** (most recently placed on the box) into the CNPG Postgres cluster. No dump is shipped in the repo/clone — if none is present the restore is a no-op (n8n starts empty). Note: mtime = when the file landed here; plain `scp`/`create-workflows-dumpall.sh` stamp it now (so newest == last added), but `scp -p`/`rsync -a` preserve the source mtime — remove the superseded seed or `touch` your intended winner if you use those.
 - When restoring from a `pg_dumpall` dump, `DROP DATABASE n8n WITH (FORCE)` first — the dump has no `--clean` clause so old artifacts survive if you don't. `CREATE ROLE postgres/streaming_replica` lines error harmlessly (CNPG-managed roles already exist). Re-assert `ALTER ROLE n8n PASSWORD 'rdf#rocks'` + public grants after.
 - The n8n **Configuration** workflow's `poolPartyProjectId` and GraphDB paths must be updated for your deployment or every ingest workflow fails.
 
@@ -744,7 +744,7 @@ scripts/
                            maven registry auth
   validate-bootstrap.sh   Post-bootstrap health check
   validate-stack.sh       Post-reset-helm health check (pods, certs, OIDC, HTTPS)
-  restore-workflows-dumpall.sh  Load workflow DB from newest $HOME/workflows-pg-dumpall*.sql
+  restore-workflows-dumpall.sh  Load workflow DB from newest (by mtime) $HOME/workflows*.sql
   create-workflows-dumpall.sh   Snapshot live workflow DB -> $HOME/workflows-pg-dumpall-<date>.sql
   check-image-versions.sh Check/upgrade image tags vs Docker Hub; --apply rolls the live stack
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
@@ -799,7 +799,7 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | `cluster-resume.sh` | EC2 *(boot)* | Restart KIND node containers after a reboot, then start workloads |
 | **Workflow database seed** | | |
 | `create-workflows-dumpall.sh` | EC2 | Snapshot the live workflow DB to `$HOME/workflows-pg-dumpall-<date>.sql` |
-| `restore-workflows-dumpall.sh` | EC2 | Load the newest `$HOME/workflows-pg-dumpall*.sql` into n8n Postgres |
+| `restore-workflows-dumpall.sh` | EC2 | Load the newest-by-mtime `$HOME/workflows*.sql` (freeform-named seed) into n8n Postgres |
 | `register-n8n-api-key.sh` | EC2 | Register the seed's n8n public-API key so API-calling nodes don't 401 |
 | **Branding, images & utilities** | | |
 | `set-logo.sh` | EC2 | Base64-encode a customer logo into a gitignored console-branding overlay |
@@ -853,10 +853,10 @@ After an EC2 stop/start the KIND node containers stay `Exited` (no restart polic
 ### Workflow database seed
 
 #### `create-workflows-dumpall.sh`
-Snapshots the live workflow (n8n) database with `pg_dumpall` into `$HOME/workflows-pg-dumpall-<date>.sql` on the EC2 home root. Because `restore-workflows-dumpall.sh` loads the *newest* such file, a fresh dump created here is what the next restore picks up. Run after the stack is up (Postgres + n8n Running).
+Snapshots the live workflow (n8n) database with `pg_dumpall` into `$HOME/workflows-pg-dumpall-<date>.sql` on the EC2 home root. That auto-name matches the `workflows*.sql` glob and, being freshly written, has the newest mtime — so a fresh dump created here is what the next restore picks up. Rename it (keeping the `workflows` prefix) if you want to keep it as a tailored per-deployment seed. Run after the stack is up (Postgres + n8n Running).
 
 #### `restore-workflows-dumpall.sh`
-Loads a workflow DB seed into the freshly-initdb'd n8n Postgres: drops the existing DB, loads the newest `$HOME/workflows-pg-dumpall*.sql` (by date + version sort), then re-asserts the n8n role password and public grants. The seed is **not** shipped in the repo — scp one up or produce it with `create-workflows-dumpall.sh`; if none is present the script is a safe no-op. Called as the last step of `deploy-stack.sh`.
+Loads a workflow DB seed into the freshly-initdb'd n8n Postgres: drops the existing DB, loads the newest **by mtime** `$HOME/workflows*.sql` (a freeform-named seed — name the wildcard portion for the deployment's use case, e.g. `workflows-acme-demo.sql`), then re-asserts the n8n role password and public grants. The seed is **not** shipped in the repo — scp one up or produce it with `create-workflows-dumpall.sh`; if none is present the script is a safe no-op. Called as the last step of `deploy-stack.sh`.
 
 #### `register-n8n-api-key.sh`
 Registers the seed's n8n public-API key in `public.user_api_keys` so nodes that call the n8n public API (token-usage calc, execution loaders) don't 401. The JWT ships in the seed's API-keys data table, but the registration row came back empty; this inserts the matching registration, tied to the owner user. Idempotent (guarded by `WHERE NOT EXISTS`).

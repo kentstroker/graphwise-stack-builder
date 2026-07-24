@@ -34,10 +34,13 @@ crash.log
 !charts/graphwise-stack/charts/*.tgz
 
 # --- workflow Postgres dumps: NEVER committed anywhere in the repo. The seed
-#     lives only on the EC2 home root ($HOME/workflows-pg-dumpall-<date>-v<N>.sql)
+#     lives only on the EC2 home root as a FREEFORM-named $HOME/workflows*.sql
+#     (e.g. workflows-acme-demo.sql, or the auto-named workflows-pg-dumpall-<date>.sql)
 #     -- scp'd up by the operator or made by create-workflows-dumpall.sh;
-#     restore-workflows-dumpall.sh loads the newest. ---
-**/workflows-pg-dumpall*.sql
+#     restore-workflows-dumpall.sh loads the newest by mtime. The broad
+#     **/workflows*.sql glob keeps any use-case-named seed from leaking, no matter
+#     the wildcard portion (see the license-leak-on-rename lesson in CLAUDE.md). ---
+**/workflows*.sql
 **/n8n-pg-dumpall*.sql
 
 # Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit

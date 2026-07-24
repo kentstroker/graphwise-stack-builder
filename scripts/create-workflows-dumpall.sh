@@ -3,8 +3,11 @@
 # pg_dumpall plain-SQL file that restore-workflows-dumpall.sh can reload.
 #
 # Output: $HOME/workflows-pg-dumpall-<date>.sql (EC2 home root, uncompressed).
-# restore-workflows-dumpall.sh loads the NEWEST $HOME/workflows-pg-dumpall*.sql,
-# so a fresh dump created here is picked up on the next restore.
+# This auto-name matches restore-workflows-dumpall.sh's $HOME/workflows*.sql glob,
+# so a fresh dump created here is picked up on the next restore (it loads the
+# NEWEST match by mtime). Rename it to something use-case-specific (still starting
+# with "workflows", e.g. workflows-acme-demo.sql) if you want to keep it around as
+# a tailored per-deployment seed.
 #
 # Run from: the EC2, after the stack is up (Postgres + n8n Running).
 set -euo pipefail

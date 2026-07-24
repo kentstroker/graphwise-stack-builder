@@ -189,10 +189,11 @@ logs, or `terraform output -raw user_data_b64 | base64 -d | wc -c`).
 
 11. **Workflow DB seed (no longer shipped in the repo)** — earlier builds expanded an
     `n8n-pg-dumpall-*.sql.tar.gz` from the repo here. That seed is no longer shipped in
-    the repo/clone at all. The workflow DB seed now lives only on the EC2 home root as
-    `$HOME/workflows-pg-dumpall-<date>-v<N>.sql` — scp'd up by the operator or produced
-    on the box by `create-workflows-dumpall.sh` — and `restore-workflows-dumpall.sh`
-    loads the NEWEST one (no-op if none is present).
+    the repo/clone at all. The workflow DB seed now lives only on the EC2 home root under
+    the freeform glob `$HOME/workflows*.sql` (name the wildcard for the deployment's use
+    case, e.g. `workflows-acme-demo.sql`) — scp'd up by the operator or produced on the
+    box by `create-workflows-dumpall.sh` — and `restore-workflows-dumpall.sh` loads the
+    NEWEST one by mtime (no-op if none is present).
 
 12. **pip3 packages** — `pip3 install -r ~/gsb/requirements.txt` system-wide (available
     to all scripts on the host — e.g., the Python used by `extract-poolparty-realm.sh`

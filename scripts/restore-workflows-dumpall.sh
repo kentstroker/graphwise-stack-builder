@@ -4,13 +4,22 @@
 #
 # The n8n Postgres (CNPG cluster graphrag-postgres-n8n, graphrag ns) is freshly
 # initdb'd on every build, so there is nothing worth backing up: we just drop
-# any database that's there and load the seed. The seed is the plain-SQL
-# pg_dumpall named
-#   $HOME/workflows-pg-dumpall-<date>-v<N>.sql
-# (e.g. $HOME/workflows-pg-dumpall-2026-07-13-v17.sql), placed in the EC2 home
-# root -- scp'd up by the operator, or produced by create-workflows-dumpall.sh.
-# If several dumps are present we load the NEWEST by the date + version embedded
-# in the filename (version sort), not mtime.
+# any database that's there and load the seed. The seed is a plain-SQL
+# pg_dumpall whose name is FREEFORM -- it need only match the glob
+#   $HOME/workflows*.sql
+# (e.g. $HOME/workflows-acme-demo.sql, $HOME/workflows-fibo-benchmark.sql, or
+# the auto-named $HOME/workflows-pg-dumpall-<date>.sql from
+# create-workflows-dumpall.sh), so the wildcard can describe that deployment's
+# use case. Placed in the EC2 home root -- scp'd up by the operator, or produced
+# by create-workflows-dumpall.sh.
+#
+# If several matches are present we load the NEWEST by mtime (`ls -t`), i.e. the
+# one most recently placed on the box. NOTE: mtime = when the file landed here.
+# Plain `scp` (the stack-scp.sh path) and create-workflows-dumpall.sh both stamp
+# mtime = now, so "newest" == "last added" -- what you want. If you copy with
+# `scp -p` or `rsync -a` (which PRESERVE the source mtime), a freshly-authored
+# seed may look older than an auto-dump; in that case remove the superseded file
+# or `touch` the one you want to win.
 #
 # Gated: if no matching file is present, this is a no-op (exit 0), so it
 # is safe to call unconditionally at the end of deploy-stack.sh.
@@ -25,12 +34,12 @@ NS=graphrag
 CLUSTER=graphrag-postgres-n8n
 DEPLOY=graphrag-workflows
 
-# Discover the seed in the EC2 home root, newest by the date + version in the
-# filename (`sort -V | tail -1`). Nothing there -> no-op (n8n starts empty);
+# Discover the seed in the EC2 home root: the freeform-named $HOME/workflows*.sql,
+# newest by mtime (`ls -t | head -1`). Nothing there -> no-op (n8n starts empty);
 # there is NO fallback -- the seed is not shipped in the repo/clone.
-DUMP="$(ls -1 "$HOME"/workflows-pg-dumpall*.sql 2>/dev/null | sort -V | tail -1 || true)"
+DUMP="$(ls -t "$HOME"/workflows*.sql 2>/dev/null | head -1 || true)"
 if [ -z "$DUMP" ] || [ ! -f "$DUMP" ]; then
-    echo "${YELLOW}restore-workflows-dumpall:${RESET} no \$HOME/workflows-pg-dumpall*.sql found -- skipping (nothing to load)."
+    echo "${YELLOW}restore-workflows-dumpall:${RESET} no \$HOME/workflows*.sql found -- skipping (nothing to load)."
     exit 0
 fi
 

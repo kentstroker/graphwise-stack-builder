@@ -156,9 +156,11 @@ echo "${BOLD}[3/4] reset-helm.sh --yes ${SUB} ${BASE}${RESET}"
 "$SCRIPT_DIR/reset-helm.sh" --yes "$SUB" "$BASE"
 
 # ---------------------------------------------------------------------------
-# Phase 4 -- load the shipped n8n workflow DB seed (no-op if no seed present).
-# The seed rides the git clone (repo tarball) and is decompressed to $HOME by
-# user-data.sh.tpl at cloud-init; this loads it into the fresh n8n Postgres.
+# Phase 4 -- load the n8n workflow DB seed (no-op if no seed present).
+# The seed is NOT shipped in the repo/clone: it is a freeform-named
+# $HOME/workflows*.sql placed on the EC2 home root (scp'd up by the operator, or
+# produced by create-workflows-dumpall.sh). This loads the newest match by mtime
+# into the fresh n8n Postgres.
 # ---------------------------------------------------------------------------
 echo
 echo "${BOLD}[4/4] restore-workflows-dumpall.sh${RESET}"
