@@ -2,5 +2,5 @@ apiVersion: v2
 name: graphviews
 description: GraphViews — visualization on top of PoolParty content. Uses superadmin creds (no Keycloak).
 type: application
-version: 2.2.3
+version: 2.2.4
 appVersion: "1.0.1"

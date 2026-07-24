@@ -32,6 +32,25 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# Cloud-init gate -- MUST be first, ahead of the docker-group reexec below.
+# On a Terraform-provisioned host, cloud-init (user-data.sh.tpl) spends ~10-15
+# min installing Docker/KIND/kubectl/helm and standing the cluster up. An
+# operator who SSHes in and runs deploy-stack before that finishes hits a
+# cascade of ugly errors (docker socket unreachable / `sg docker` / no kubectl
+# / no cluster). cloud-init writes "=== Bootstrap complete ... ===" to
+# /var/log/bootstrap.log as its very last line (mode 644, readable without
+# sudo); until that marker appears, refuse to run and tell the operator to wait.
+# ---------------------------------------------------------------------------
+BOOTSTRAP_LOG="/var/log/bootstrap.log"
+if ! grep -q "Bootstrap complete" "$BOOTSTRAP_LOG" 2>/dev/null; then
+    echo "cloud-init is still setting up this host (Docker/KIND/kubectl/helm)." >&2
+    echo "Wait a few minutes, then re-run this script. Watch progress with:" >&2
+    echo "    sudo tail -f $BOOTSTRAP_LOG" >&2
+    echo "deploy-stack will proceed once that log shows '=== Bootstrap complete ... ==='." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
 # Docker-group self-reexec -- must be first. cloud-init adds ec2-user to the
 # docker group, but an SSH session opened before that took effect lacks it.
 # Re-exec once under `sg docker` so this script AND its children
