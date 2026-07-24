@@ -123,5 +123,19 @@ if [[ -f "$SCRIPT_DIR/cluster-start.sh" ]]; then
         || echo "WARN: workload restore reported an error; check 'kubectl get deploy,sts -n graphwise'." >&2
 fi
 
+# PoolParty's extraction index (concept index) does not survive an EC2
+# stop/start: every /extractor/api/extract call then 400s with "Concept
+# Index is empty", silently disabling the GraphRAG Concept Enricher and
+# Concept Expansion steps while the rest of the stack looks healthy
+# (observed 2026-07-21 and 2026-07-22, both right after a stop/start).
+# The guard canary-probes the extractor and triggers the index rebuild
+# when needed. Same non-fatal contract as the workload restore above:
+# a guard failure must not abort the resume.
+if [[ -f "$SCRIPT_DIR/poolparty-extractor-guard.sh" ]]; then
+    echo
+    bash "$SCRIPT_DIR/poolparty-extractor-guard.sh" \
+        || echo "WARN: PoolParty extraction index NOT healthy - Concept Enricher/Expansion will fail. Rebuild the Extraction Model in the PoolParty UI or re-run scripts/poolparty-extractor-guard.sh." >&2
+fi
+
 echo
 kubectl get pods -A
