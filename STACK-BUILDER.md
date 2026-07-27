@@ -94,7 +94,7 @@ runs put the entire Graphwise suite in the cluster:
 - **Keycloak** — SSO for PoolParty, ADF, Semantic Workbench, GraphRAG conversation
 - **Addons** — ADF, Semantic Workbench, GraphViews, RDF4J, UnifiedViews, Ontotext Refine
 - **GraphRAG** — chatbot, conversation API, components, n8n workflow engine
-- **Console** — apex landing page with links to every app and mode toggle
+- **Console** — apex landing page with links to every app and a Full/Demo mode toggle; the top panel is organized as three cumulative product bundles (Data Management Suite → Knowledge Management Suite → Graph AI Suite)
 - **Observability** — Kubernetes Dashboard, Prometheus, Grafana, AlertManager
 
 Each app gets its own HTTPS subdomain and Let's Encrypt certificate. The whole thing

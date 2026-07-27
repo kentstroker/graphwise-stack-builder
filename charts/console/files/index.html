@@ -76,6 +76,21 @@ section h2 {
   display: block; height: 24px; width: auto;
   margin: 0.15rem auto 0.6rem; object-fit: contain;
 }
+/* Suite-bundle sections: a magenta left-accent + increasing indent per tier
+   makes each bundle visibly nest inside (contain) the one above it. */
+.suite {
+  border-left: 3px solid #DF367C;
+  padding-left: 1rem;
+  margin-left: var(--suite-indent, 0);
+}
+.suite h2 {
+  font-size: 1.05rem; font-weight: 700; color: #00107F;
+  text-transform: none; letter-spacing: -0.01em;
+  border-bottom: none; margin-bottom: 0.15rem; padding-bottom: 0;
+}
+.suite .suite-sub {
+  font-size: 0.82rem; color: #6b7280; margin: 0 0 0.75rem;
+}
 footer {
   max-width: 1240px; margin: 0 auto; padding: 1rem 1.5rem;
   color: #6b7280; font-size: 0.85rem; text-align: center;
@@ -125,8 +140,9 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
 
 <div class="gw-logo"><img src="graphwise.png" alt="Graphwise"></div>
 
-<section data-demo-section>
-  <h2>Start here</h2>
+<section class="suite" data-demo-section>
+  <h2>Data Management Suite</h2>
+  <p class="suite-sub">Graph Modeling + GraphDB + Graph Automation</p>
   <div class="grid">
     <a class="card primary" data-demo href="https://poolparty.{{ $apex }}/PoolParty/">
       <img class="logo" src="graph-modeling.png" alt="Graph Modeling">
@@ -146,12 +162,26 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
       <div class="desc">Pipeline editor; first visitor sets the owner account</div>
       <div class="auth">{{ .Values.credentials.n8n }}</div>
     </a>
+  </div>
+</section>
+
+<section class="suite" style="--suite-indent: 1.5rem;" data-demo-section>
+  <h2>Knowledge Management Suite</h2>
+  <p class="suite-sub">Everything above + Semantic Analytics</p>
+  <div class="grid">
     <a class="card primary" data-demo href="https://poolparty.{{ $apex }}/extractor/">
       <img class="logo" src="semantic-analytics.png" alt="Semantic Analytics">
       <div class="title">Semantic Analytics</div>
       <div class="desc">Concept-extraction REST API &mdash; no UI</div>
       <div class="auth">SSO bearer token required</div>
     </a>
+  </div>
+</section>
+
+<section class="suite" style="--suite-indent: 3rem;" data-demo-section>
+  <h2>Graph AI Suite</h2>
+  <p class="suite-sub">Everything above + GraphRAG</p>
+  <div class="grid">
     <a class="card primary" data-demo href="https://graphrag.{{ $apex }}/">
       <img class="logo" src="graphrag.png" alt="GraphRAG">
       <div class="title">GraphRAG</div>
@@ -173,7 +203,7 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
 </section>
 
 <section data-demo-section>
-  <h2>Graph Modeling Suite</h2>
+  <h2>Graphwise Supplemental Tools</h2>
   <div class="grid">
     <a class="card" href="https://poolparty.{{ $apex }}/GraphSearch/">
       <div class="title">GraphSearch</div>
@@ -206,22 +236,6 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
       <div class="auth">no auth &middot; CIDR-restricted (admin_cidr)</div>
       <div class="hint">In Refine UI &rarr; Settings &rarr; Connect to GraphDB, paste:<br>
         <code>http://graphwise-stack-graphdb-projects:7200</code></div>
-    </a>
-  </div>
-</section>
-
-<section>
-  <h2>GraphRAG (AI / RAG)</h2>
-  <div class="grid">
-    <a class="card" href="https://graphrag.{{ $apex }}/">
-      <div class="title">Chatbot</div>
-      <div class="desc">Web UI for the conversational agent</div>
-      <div class="auth">SSO &middot; {{ .Values.credentials.graphragSso }}</div>
-    </a>
-    <a class="card" href="https://graphrag.{{ $apex }}/conversations/">
-      <div class="title">Conversation API</div>
-      <div class="desc">Spring backend for chatbot &middot; OIDC bearer required</div>
-      <div class="auth">service-to-service OIDC</div>
     </a>
   </div>
 </section>
@@ -279,32 +293,6 @@ body.demo-mode section:not([data-demo-section]) { display: none; }
       <div class="title">Grafana</div>
       <div class="desc">Pre-built K8s dashboards (~30 ship with the chart). Build your own here.</div>
       <div class="auth">{{ .Values.credentials.grafana }}</div>
-    </a>
-  </div>
-</section>
-
-<section>
-  <h2>Useful config endpoints</h2>
-  <div class="grid">
-    <a class="card" href="https://auth.{{ $apex }}/realms/master/.well-known/openid-configuration">
-      <div class="title">OIDC &middot; master realm</div>
-      <div class="desc">Keycloak discovery for the admin realm</div>
-    </a>
-    <a class="card" href="https://auth.{{ $apex }}/realms/poolparty/.well-known/openid-configuration">
-      <div class="title">OIDC &middot; poolparty realm</div>
-      <div class="desc">Consumed by Graph Modeling / ADF / Semantic Workbench</div>
-    </a>
-    <a class="card" href="https://auth.{{ $apex }}/realms/graphrag/.well-known/openid-configuration">
-      <div class="title">OIDC &middot; graphrag realm</div>
-      <div class="desc">Consumed by GraphRAG chatbot / conversation</div>
-    </a>
-    <a class="card" href="https://graphdb.{{ $apex }}/rest/repositories">
-      <div class="title">Embedded GraphDB &middot; repo list</div>
-      <div class="desc">JSON inventory of repositories (basic auth)</div>
-    </a>
-    <a class="card" href="https://graphdb-projects.{{ $apex }}/rest/repositories">
-      <div class="title">Projects GraphDB &middot; repo list</div>
-      <div class="desc">JSON inventory of repositories (basic auth)</div>
     </a>
   </div>
 </section>
