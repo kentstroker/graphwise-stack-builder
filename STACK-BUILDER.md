@@ -380,6 +380,8 @@ After that, `ssh<name>` drops you in as `ec2-user`. For scp:
 ./scripts/stack-scp.sh -r ./data :~/staging-data/    # push recursively
 ```
 
+**Fixing lockout after your IP changes.** Each stack's security group restricts SSH/HTTP/HTTPS to your `admin_cidr` `/32`, and Terraform stops managing those rules after the first apply. When your home IP changes, run `infra/terraform-example/scripts/aws-manage-inbound-ip.sh` — it inventories every stack SG's inbound rules, then lets you `replace` the old `/32` with your new one (or `add`/`remove` a `/32`) across selected stacks. It is dry-run by default; re-run with `--apply`. Remember to also update `admin_cidr` in that stack's `terraform.tfvars` so a future destroy/apply doesn't reintroduce the old IP.
+
 For the full post-apply build sequence, see [DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md).
 
 ---
