@@ -240,6 +240,98 @@ select_stacks() {
   echo; echo "Selected:"; awk -F'\t' '{printf "   - %s (%s, %s)\n",$1,$2,$3}' "$SELECTED_TSV"
 }
 
+ADMIN_PORTS=(22 80 443)
+ADMIN_DESCS=("SSH from admin" "HTTP (redirects to 443) - admin only" "HTTPS (every app) - admin only")
+
+# REPLACE old -> new on every rule of every selected SG that carries old.
+op_replace() {  # uses OLD_CIDR, NEW_CIDR
+  local name sid region
+  while IFS=$'\t' read -r name sid region; do
+    echo; echo "-- $name ($sid) --"
+    local found=0
+    while IFS=$'\t' read -r proto from to desc; do
+      [ -n "$from" ] || continue   # skip all-ports/null
+      found=1
+      authorize_rule "$sid" "$proto" "$from" "$to" "$NEW_CIDR" "$desc"
+      revoke_rule    "$sid" "$proto" "$from" "$to" "$OLD_CIDR"
+    done < <(rules_with_cidr "$sid" "$OLD_CIDR")
+    [ "$found" -eq 0 ] && echo "   (no rule carries $OLD_CIDR — nothing to do)"
+  done < "$SELECTED_TSV"
+  return 0
+}
+
+# ADD new on ports 22/80/443 for every selected SG.
+op_add() {  # uses NEW_CIDR
+  local name sid region i
+  while IFS=$'\t' read -r name sid region; do
+    echo; echo "-- $name ($sid) --"
+    i=0
+    while [ "$i" -lt "${#ADMIN_PORTS[@]}" ]; do
+      authorize_rule "$sid" tcp "${ADMIN_PORTS[$i]}" "${ADMIN_PORTS[$i]}" "$NEW_CIDR" "${ADMIN_DESCS[$i]}"
+      i=$((i+1))
+    done
+  done < "$SELECTED_TSV"
+}
+
+# REMOVE a cidr from every rule of every selected SG that carries it.
+op_remove() {  # uses OLD_CIDR (holds the target cidr for remove)
+  local name sid region found
+  while IFS=$'\t' read -r name sid region; do
+    echo; echo "-- $name ($sid) --"
+    found=0
+    while IFS=$'\t' read -r proto from to desc; do
+      [ -n "$from" ] || continue
+      found=1
+      revoke_rule "$sid" "$proto" "$from" "$to" "$OLD_CIDR"
+    done < <(rules_with_cidr "$sid" "$OLD_CIDR")
+    [ "$found" -eq 0 ] && echo "   (no rule carries $OLD_CIDR — nothing to do)"
+  done < "$SELECTED_TSV"
+  return 0
+}
+
+# pick the operation + gather the IP args it needs (prompts if not on CLI).
+prompt_op() {
+  if [ -z "$OP" ]; then
+    echo; echo "Operation:"; echo "   1) replace  old/32 -> new/32"; echo "   2) add      new/32 on 22/80/443"; echo "   3) remove   a /32 from all rules"
+    printf 'Choose [1-3]: '; local c; read -r c < /dev/tty || c=""
+    case "$c" in 1) OP=replace ;; 2) OP=add ;; 3) OP=remove ;; *) echo "aborted."; exit 1 ;; esac
+  fi
+  case "$OP" in
+    replace)
+      [ -n "$OLD_CIDR" ] || { printf 'Old IPv4 (to retire): '; read -r OLD_CIDR < /dev/tty; OLD_CIDR="$(normalize_cidr "$OLD_CIDR")" || { echo "bad IP"; exit 2; }; }
+      [ -n "$NEW_CIDR" ] || { printf 'New IPv4 (to allow): '; read -r NEW_CIDR < /dev/tty; NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "bad IP"; exit 2; }; }
+      ;;
+    add)
+      [ -n "$NEW_CIDR" ] || { printf 'New IPv4 (to allow): '; read -r NEW_CIDR < /dev/tty; NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "bad IP"; exit 2; }; }
+      ;;
+    remove)
+      # remove reuses OLD_CIDR as the target
+      [ -n "$OLD_CIDR" ] || { printf 'IPv4 to remove: '; read -r OLD_CIDR < /dev/tty; OLD_CIDR="$(normalize_cidr "$OLD_CIDR")" || { echo "bad IP"; exit 2; }; }
+      ;;
+    *) echo "unknown operation: $OP" >&2; exit 2 ;;
+  esac
+}
+
+confirm_apply() {
+  [ "$APPLY" -eq 1 ] || return 0
+  [ "$ASSUME_YES" -eq 1 ] && return 0
+  printf '\nAbout to WRITE SG changes in account %s. Type the account id to proceed: ' "$ACCOUNT_ID"
+  local reply; read -r reply < /dev/tty || reply=""
+  [ "$reply" = "$ACCOUNT_ID" ] || { echo "Aborted."; exit 1; }
+}
+
+tfvars_reminder() {
+  # only meaningful when an admin IP was added/replaced
+  case "$OP" in replace|add) : ;; *) return 0 ;; esac
+  [ "$APPLY" -eq 1 ] || return 0
+  echo
+  echo "REMINDER: terraform.tfvars still has the OLD admin_cidr."
+  echo "  This SG change is out-of-band (lifecycle ignore_changes=[ingress]); it survives"
+  echo "  reboots but NOT a full 'terraform destroy && terraform apply', which recreates the"
+  echo "  SG from admin_cidr and would restore the old IP (locking you out again)."
+  echo "  Before any destroy/apply, set in terraform.tfvars:   admin_cidr = \"${NEW_CIDR}\""
+}
+
 AWS=(aws --profile "$PROFILE" --output json)
 
 # ---- identity / account guard ----
@@ -260,3 +352,26 @@ echo "============================================================"
 resolve_regions
 discover_stacks
 print_inventory
+[ -s "$STACKS_TSV" ] || { echo "Nothing to manage."; exit 0; }
+
+prompt_op
+select_stacks
+confirm_apply
+
+echo; echo "Operation: $OP  ($([ "$APPLY" -eq 1 ] && echo APPLY || echo DRY-RUN))"
+case "$OP" in
+  replace) op_replace ;;
+  add)     op_add ;;
+  remove)  op_remove ;;
+esac
+
+tfvars_reminder
+
+if [ -s "$FAILURES" ]; then
+  echo; echo "COMPLETED WITH FAILURES ($(grep -c . "$FAILURES") call(s)) — see messages above." >&2
+  exit 1
+fi
+if [ "$APPLY" -eq 0 ]; then
+  echo; echo "Dry-run only. Re-run with --apply to make the changes above."
+fi
+echo "Done."
