@@ -78,6 +78,7 @@ normalize_cidr() {
   # mask 0..32
   case "$mask" in ''|*[!0-9]*) return 1 ;; esac
   [ "$mask" -ge 0 ] && [ "$mask" -le 32 ] || return 1
+  if [ "$mask" -eq 0 ]; then return 1; fi   # reject 0.0.0.0/0 as an admin source
   # four dotted octets 0..255
   local IFS=.
   # shellcheck disable=SC2086
@@ -196,6 +197,7 @@ authorize_rule() {  # $1=sid $2=proto $3=from $4=to $5=cidr $6=desc
   else
     echo "   ! FAILED add $sid $3/$2 $5 -> $out" >&2
     echo "authorize $sid $3/$2 $5 $out" >> "$FAILURES"
+    return 1
   fi
 }
 
@@ -250,10 +252,11 @@ op_replace() {  # uses OLD_CIDR, NEW_CIDR
     echo; echo "-- $name ($sid) --"
     local found=0
     while IFS=$'\t' read -r proto from to desc; do
-      [ -n "$from" ] || continue   # skip all-ports/null
+      { [ -n "$from" ] && [ -n "$to" ]; } || continue   # skip all-ports/null
       found=1
-      authorize_rule "$sid" "$proto" "$from" "$to" "$NEW_CIDR" "$desc"
-      revoke_rule    "$sid" "$proto" "$from" "$to" "$OLD_CIDR"
+      if authorize_rule "$sid" "$proto" "$from" "$to" "$NEW_CIDR" "$desc"; then
+        revoke_rule    "$sid" "$proto" "$from" "$to" "$OLD_CIDR"
+      fi
     done < <(rules_with_cidr "$sid" "$OLD_CIDR")
     [ "$found" -eq 0 ] && echo "   (no rule carries $OLD_CIDR — nothing to do)"
   done < "$SELECTED_TSV"
@@ -267,7 +270,7 @@ op_add() {  # uses NEW_CIDR
     echo; echo "-- $name ($sid) --"
     i=0
     while [ "$i" -lt "${#ADMIN_PORTS[@]}" ]; do
-      authorize_rule "$sid" tcp "${ADMIN_PORTS[$i]}" "${ADMIN_PORTS[$i]}" "$NEW_CIDR" "${ADMIN_DESCS[$i]}"
+      authorize_rule "$sid" tcp "${ADMIN_PORTS[$i]}" "${ADMIN_PORTS[$i]}" "$NEW_CIDR" "${ADMIN_DESCS[$i]}" || true
       i=$((i+1))
     done
   done < "$SELECTED_TSV"
@@ -280,7 +283,7 @@ op_remove() {  # uses OLD_CIDR (holds the target cidr for remove)
     echo; echo "-- $name ($sid) --"
     found=0
     while IFS=$'\t' read -r proto from to desc; do
-      [ -n "$from" ] || continue
+      { [ -n "$from" ] && [ -n "$to" ]; } || continue
       found=1
       revoke_rule "$sid" "$proto" "$from" "$to" "$OLD_CIDR"
     done < <(rules_with_cidr "$sid" "$OLD_CIDR")
