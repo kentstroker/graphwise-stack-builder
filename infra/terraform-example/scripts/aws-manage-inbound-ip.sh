@@ -159,6 +159,63 @@ print_inventory() {
   done < "$STACKS_TSV"
 }
 
+# emit proto/from/to/desc for each ingress rule whose CidrIp == $2 on SG $1
+rules_with_cidr() {  # $1=sid  $2=cidr
+  jq -r --arg c "$2" '
+    .IpPermissions[]?
+    | . as $perm
+    | .IpRanges[]? | select(.CidrIp == $c)
+    | [ $perm.IpProtocol,
+        ($perm.FromPort // "" | tostring),
+        ($perm.ToPort   // "" | tostring),
+        (.Description // "") ] | @tsv
+  ' "$SCRATCH/${1}.json"
+}
+
+# build the --ip-permissions JSON for a single (proto,from,to,cidr,desc) rule
+_ip_perms_json() {  # $1=proto $2=from $3=to $4=cidr $5=desc
+  jq -cn --arg proto "$1" --arg from "$2" --arg to "$3" --arg cidr "$4" --arg desc "$5" '
+    { IpProtocol: $proto,
+      FromPort:  ($from|tonumber),
+      ToPort:    ($to|tonumber),
+      IpRanges:  [ ( {CidrIp:$cidr} + (if $desc=="" then {} else {Description:$desc} end) ) ] }
+    | [ . ]'
+}
+
+authorize_rule() {  # $1=sid $2=proto $3=from $4=to $5=cidr $6=desc
+  local sid="$1" perms; perms="$(_ip_perms_json "$2" "$3" "$4" "$5" "$6")"
+  if [ "$APPLY" -eq 0 ]; then
+    echo "   would ADD    $sid  $3/$2  $5  ${6:+\"$6\"}"
+    return 0
+  fi
+  local out
+  if out="$("${AWS[@]}" ec2 authorize-security-group-ingress --group-id "$sid" --ip-permissions "$perms" 2>&1)"; then
+    echo "   added:   $sid  $3/$2  $5"
+  elif printf '%s' "$out" | grep -q 'InvalidPermission.Duplicate'; then
+    echo "   present: $sid  $3/$2  $5 (already authorized)"
+  else
+    echo "   ! FAILED add $sid $3/$2 $5 -> $out" >&2
+    echo "authorize $sid $3/$2 $5 $out" >> "$FAILURES"
+  fi
+}
+
+revoke_rule() {  # $1=sid $2=proto $3=from $4=to $5=cidr
+  local sid="$1" perms; perms="$(_ip_perms_json "$2" "$3" "$4" "$5" "")"
+  if [ "$APPLY" -eq 0 ]; then
+    echo "   would REMOVE $sid  $3/$2  $5"
+    return 0
+  fi
+  local out
+  if out="$("${AWS[@]}" ec2 revoke-security-group-ingress --group-id "$sid" --ip-permissions "$perms" 2>&1)"; then
+    echo "   removed: $sid  $3/$2  $5"
+  elif printf '%s' "$out" | grep -q 'InvalidPermission.NotFound'; then
+    echo "   absent:  $sid  $3/$2  $5 (nothing to revoke)"
+  else
+    echo "   ! FAILED remove $sid $3/$2 $5 -> $out" >&2
+    echo "revoke $sid $3/$2 $5 $out" >> "$FAILURES"
+  fi
+}
+
 AWS=(aws --profile "$PROFILE" --output json)
 
 # ---- identity / account guard ----
