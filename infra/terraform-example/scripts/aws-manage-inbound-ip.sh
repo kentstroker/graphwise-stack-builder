@@ -67,6 +67,32 @@ done
 command -v aws >/dev/null 2>&1 || { echo "ERROR: aws CLI not found" >&2; exit 1; }
 command -v jq  >/dev/null 2>&1 || { echo "ERROR: jq not found" >&2; exit 1; }
 
+# ---- IPv4 CIDR validation / normalization ----
+# echoes canonical CIDR (bare IP -> /32) on success; non-zero + no output on fail.
+normalize_cidr() {
+  local in="$1" ip mask o1 o2 o3 o4
+  case "$in" in
+    */*) ip="${in%/*}"; mask="${in#*/}" ;;
+    *)   ip="$in";      mask="32" ;;
+  esac
+  # mask 0..32
+  case "$mask" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$mask" -ge 0 ] && [ "$mask" -le 32 ] || return 1
+  # four dotted octets 0..255
+  local IFS=.
+  # shellcheck disable=SC2086
+  set -- $ip
+  [ $# -eq 4 ] || return 1
+  for o in "$1" "$2" "$3" "$4"; do
+    case "$o" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$o" -ge 0 ] && [ "$o" -le 255 ] || return 1
+  done
+  echo "${ip}/${mask}"
+}
+
+if [ -n "$OLD_CIDR" ]; then OLD_CIDR="$(normalize_cidr "$OLD_CIDR")" || { echo "ERROR: --old is not a valid IPv4/CIDR" >&2; exit 2; }; fi
+if [ -n "$NEW_CIDR" ]; then NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "ERROR: --new is not a valid IPv4/CIDR" >&2; exit 2; }; fi
+
 AWS=(aws --profile "$PROFILE" --output json)
 
 # ---- identity / account guard ----
