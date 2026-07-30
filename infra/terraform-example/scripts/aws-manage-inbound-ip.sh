@@ -93,6 +93,72 @@ normalize_cidr() {
 if [ -n "$OLD_CIDR" ]; then OLD_CIDR="$(normalize_cidr "$OLD_CIDR")" || { echo "ERROR: --old is not a valid IPv4/CIDR" >&2; exit 2; }; fi
 if [ -n "$NEW_CIDR" ]; then NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "ERROR: --new is not a valid IPv4/CIDR" >&2; exit 2; }; fi
 
+# ---- scratch / bookkeeping ----
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/gw-sg-ip.XXXXXX")"
+FAILURES="$SCRATCH/failures.log"; : > "$FAILURES"
+STACKS_TSV="$SCRATCH/stacks.tsv"; : > "$STACKS_TSV"
+trap 'rm -rf "$SCRATCH"' EXIT
+
+# resolve regions: --region flags win; else the profile's configured region.
+resolve_regions() {
+  [ "${#REGIONS[@]}" -gt 0 ] && return 0
+  local r
+  r="$(aws --profile "$PROFILE" configure get region 2>/dev/null || true)"
+  [ -n "$r" ] || r="$("${AWS[@]}" configure get region 2>/dev/null || true)"
+  [ -n "$r" ] || { echo "ERROR: no region. Pass --region R or set one in the profile." >&2; exit 1; }
+  REGIONS=("$r")
+}
+
+# discover Graphwise stack SGs into STACKS_TSV + cache each SG JSON.
+DESC_MARKER="Graphwise Stack KIND demo"
+discover_stacks() {
+  local region sgs
+  for region in "${REGIONS[@]}"; do
+    sgs="$("${AWS[@]}" ec2 describe-security-groups --region "$region" \
+            --filters Name=tag:ManagedBy,Values=terraform 2>/dev/null || echo '{}')"
+    # keep only SGs whose Description starts with the marker; emit id + friendly name
+    printf '%s' "$sgs" | jq -c --arg m "$DESC_MARKER" '
+      .SecurityGroups[]? | select((.Description // "") | startswith($m))' \
+    | while IFS= read -r sg; do
+        local sid sname
+        sid="$(printf '%s' "$sg" | jq -r '.GroupId')"
+        sname="$(printf '%s' "$sg" | jq -r '(.Tags[]? | select(.Key=="Subdomain") | .Value) // .GroupName')"
+        printf '%s' "$sg" > "$SCRATCH/${sid}.json"
+        printf '%s\t%s\t%s\n' "$sname" "$sid" "$region" >> "$STACKS_TSV"
+      done
+  done
+}
+
+# print each SG's ingress rules. CIDR sources shown plainly; prefix-list/0.0.0.0
+# sources annotated as untouched.
+print_inventory() {
+  echo
+  echo "Discovered stacks (regions: ${REGIONS[*]}):"
+  echo
+  if [ ! -s "$STACKS_TSV" ]; then
+    echo "  (none found — no SG with description starting \"$DESC_MARKER\")"
+    return 0
+  fi
+  local name sid region
+  while IFS=$'\t' read -r name sid region; do
+    printf '  stack: %-16s %s   %s\n' "$name" "$sid" "$region"
+    jq -r '
+      .IpPermissions[]?
+      | (if .FromPort == null then "all" else (.FromPort|tostring) end) as $p
+      | (.IpProtocol) as $proto
+      | ( [ .IpRanges[]?     | "\(.CidrIp)\t\(.Description // "")" ]
+        + [ .Ipv6Ranges[]?   | "\(.CidrIpv6)\t\(.Description // "")" ]
+        + [ .PrefixListIds[]? | "\(.PrefixListId) (prefix list — untouched)\t" ]
+        )[]
+      | "      \($p)/\($proto)\t\(.)"
+    ' "$SCRATCH/${sid}.json" \
+    | while IFS=$'\t' read -r portproto src desc; do
+        printf '      %-12s %-22s %s\n' "$portproto" "$src" "${desc:+\"$desc\"}"
+      done
+    echo
+  done < "$STACKS_TSV"
+}
+
 AWS=(aws --profile "$PROFILE" --output json)
 
 # ---- identity / account guard ----
@@ -108,3 +174,8 @@ echo "   caller  : $CALLER_ARN"
 echo "   profile : $PROFILE"
 echo "   mode    : $([ "$APPLY" -eq 1 ] && echo 'APPLY (writes changes)' || echo 'DRY-RUN (no changes)')"
 echo "============================================================"
+
+# =========================== main ==========================================
+resolve_regions
+discover_stacks
+print_inventory
