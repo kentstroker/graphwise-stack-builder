@@ -216,6 +216,30 @@ revoke_rule() {  # $1=sid $2=proto $3=from $4=to $5=cidr
   fi
 }
 
+SELECTED_TSV="$SCRATCH/selected.tsv"
+select_stacks() {
+  : > "$SELECTED_TSV"
+  while :; do
+    printf '\nSelect stacks — "all", a name, or a comma list of names [all]: '
+    local reply; read -r reply < /dev/tty || reply="all"
+    [ -z "$reply" ] && reply="all"
+    if [ "$reply" = "all" ]; then
+      cp "$STACKS_TSV" "$SELECTED_TSV"; break
+    fi
+    : > "$SELECTED_TSV"
+    local ok=1 IFS=,
+    for want in $reply; do
+      want="$(printf '%s' "$want" | tr -d '[:space:]')"
+      local match; match="$(awk -F'\t' -v n="$want" '$1==n' "$STACKS_TSV")"
+      if [ -z "$match" ]; then echo "   ! no stack named '$want'"; ok=0; else printf '%s\n' "$match" >> "$SELECTED_TSV"; fi
+    done
+    unset IFS
+    [ "$ok" -eq 1 ] && [ -s "$SELECTED_TSV" ] && break
+    echo "   try again."
+  done
+  echo; echo "Selected:"; awk -F'\t' '{printf "   - %s (%s, %s)\n",$1,$2,$3}' "$SELECTED_TSV"
+}
+
 AWS=(aws --profile "$PROFILE" --output json)
 
 # ---- identity / account guard ----
