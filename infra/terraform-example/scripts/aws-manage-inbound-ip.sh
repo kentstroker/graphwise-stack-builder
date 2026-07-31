@@ -14,6 +14,7 @@
 # one operation on interactively-selected stacks:
 #   replace  <old/32> -> <new/32>   swap the admin IP on every rule carrying old
 #   add      <new/32>               grant new/32 on ports 22/80/443
+#   add-https <new/32>              grant new/32 on port 443 (HTTPS) only
 #   remove   <cidr/32>              revoke a /32 from every rule carrying it
 #
 # Prefix-list sources (e.g. the manual EC2 Instance Connect port-22 rule) and
@@ -38,7 +39,7 @@
 #
 set -euo pipefail
 
-usage() { sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,/^# Requires/p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # ---- defaults ----
 APPLY=0
@@ -264,14 +265,13 @@ op_replace() {  # uses OLD_CIDR, NEW_CIDR
 }
 
 # ADD new on ports 22/80/443 for every selected SG.
-op_add() {  # uses NEW_CIDR
+op_add() {  # uses NEW_CIDR; $1 = space-separated indices into ADMIN_PORTS (default: all = 22/80/443)
+  local idxs="${1:-0 1 2}"
   local name sid region i
   while IFS=$'\t' read -r name sid region; do
     echo; echo "-- $name ($sid) --"
-    i=0
-    while [ "$i" -lt "${#ADMIN_PORTS[@]}" ]; do
+    for i in $idxs; do
       authorize_rule "$sid" tcp "${ADMIN_PORTS[$i]}" "${ADMIN_PORTS[$i]}" "$NEW_CIDR" "${ADMIN_DESCS[$i]}" || true
-      i=$((i+1))
     done
   done < "$SELECTED_TSV"
 }
@@ -295,16 +295,21 @@ op_remove() {  # uses OLD_CIDR (holds the target cidr for remove)
 # pick the operation + gather the IP args it needs (prompts if not on CLI).
 prompt_op() {
   if [ -z "$OP" ]; then
-    echo; echo "Operation:"; echo "   1) replace  old/32 -> new/32"; echo "   2) add      new/32 on 22/80/443"; echo "   3) remove   a /32 from all rules"
-    printf 'Choose [1-3]: '; local c; read -r c < /dev/tty || c=""
-    case "$c" in 1) OP=replace ;; 2) OP=add ;; 3) OP=remove ;; *) echo "aborted."; exit 1 ;; esac
+    echo; echo "Operation:"
+    echo "   1) replace    old/32 -> new/32"
+    echo "   2) add        new/32 on 22/80/443"
+    echo "   3) remove     a /32 from all rules"
+    echo "   4) add-https  new/32 on 443 (HTTPS) only"
+    echo "   q) quit"
+    printf 'Choose [1-4, q]: '; local c; read -r c < /dev/tty || c=""
+    case "$c" in 1) OP=replace ;; 2) OP=add ;; 3) OP=remove ;; 4) OP=add_https ;; q|Q) echo "Quit."; exit 0 ;; *) echo "aborted."; exit 1 ;; esac
   fi
   case "$OP" in
     replace)
       [ -n "$OLD_CIDR" ] || { printf 'Old IPv4 (to retire): '; read -r OLD_CIDR < /dev/tty; OLD_CIDR="$(normalize_cidr "$OLD_CIDR")" || { echo "bad IP"; exit 2; }; }
       [ -n "$NEW_CIDR" ] || { printf 'New IPv4 (to allow): '; read -r NEW_CIDR < /dev/tty; NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "bad IP"; exit 2; }; }
       ;;
-    add)
+    add|add_https)
       [ -n "$NEW_CIDR" ] || { printf 'New IPv4 (to allow): '; read -r NEW_CIDR < /dev/tty; NEW_CIDR="$(normalize_cidr "$NEW_CIDR")" || { echo "bad IP"; exit 2; }; }
       ;;
     remove)
@@ -325,7 +330,7 @@ confirm_apply() {
 
 tfvars_reminder() {
   # only meaningful when an admin IP was added/replaced
-  case "$OP" in replace|add) : ;; *) return 0 ;; esac
+  case "$OP" in replace|add|add_https) : ;; *) return 0 ;; esac
   [ "$APPLY" -eq 1 ] || return 0
   echo
   echo "REMINDER: terraform.tfvars still has the OLD admin_cidr."
@@ -363,9 +368,10 @@ confirm_apply
 
 echo; echo "Operation: $OP  ($([ "$APPLY" -eq 1 ] && echo APPLY || echo DRY-RUN))"
 case "$OP" in
-  replace) op_replace ;;
-  add)     op_add ;;
-  remove)  op_remove ;;
+  replace)   op_replace ;;
+  add)       op_add ;;
+  add_https) op_add "2" ;;
+  remove)    op_remove ;;
 esac
 
 tfvars_reminder
