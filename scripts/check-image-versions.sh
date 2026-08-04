@@ -8,6 +8,12 @@
 # chart values under ~/gsb/charts in place). After edits it runs
 # `helm dependency update` to rebuild the umbrella's bundled tarballs.
 #
+# "Latest" is newest-tag-overall for most images, but an image may instead be
+# pinned to a Docker Hub release channel via the catalogue's optional CHANNEL
+# field -- then latest = newest tag sharing that channel tag's digest. MySQL
+# uses this to track `lts` (9.7.x) rather than `latest`/`innovation` (26.x).
+# Such rows are marked with the channel name in the summary table.
+#
 # With --apply it then rolls the running stack to the new images WITHOUT
 # destroying data: for each upgraded image it `docker pull`s the new tag and
 # `kind load`s it into the cluster, then does a non-destructive `helm upgrade`
@@ -77,6 +83,52 @@ fetch_latest() {
     echo "$all_tags" | grep -E "$filter" | sort -V | tail -1
 }
 
+# fetch_latest_channel NAMESPACE IMAGE TAG_REGEX CHANNEL
+# Like fetch_latest, but tracks a Docker Hub *release channel* instead of the
+# newest tag overall. Resolves CHANNEL (e.g. `lts`) to its digest, then returns
+# the highest version tag matching TAG_REGEX that points at that SAME digest.
+#
+# Needed because "newest tag" and "newest tag we want" diverge once an upstream
+# runs parallel release lines. MySQL is the live case: Oracle renumbered the
+# innovation line to year-based versioning, so `latest`/`innovation` is 26.x
+# while `lts` is 9.7.x -- and the federated demo DB deliberately rides LTS.
+# Resolving through the channel tag (rather than hard-coding a `^9\.` filter)
+# means a future LTS is picked up automatically instead of silently ignored.
+#
+# Returns EMPTY on any failure -- unresolvable channel, or no version tag
+# sharing its digest. The caller must surface that as a fetch error and must
+# NOT fall back to fetch_latest: that would quietly report the very tag the
+# channel exists to avoid. Wrong-and-visible beats wrong-and-plausible.
+#
+# Known benign edge: the channel tag and its version tag float independently,
+# so a Docker Hub push window where the two digests disagree shows up as a
+# transient fetch failure. Official Images push all tags in one run, so the
+# window is negligible; re-run the script.
+fetch_latest_channel() {
+    local ns="$1" img="$2" filter="$3" channel="$4"
+    local digest
+    digest=$(curl -fsSL --max-time 15 \
+        "https://hub.docker.com/v2/repositories/${ns}/${img}/tags/${channel}" 2>/dev/null \
+        | jq -r '.digest // empty' 2>/dev/null) || true
+    [ -z "$digest" ] && return 0
+
+    local matches="" page url resp names batch
+    for page in 1 2; do
+        url="https://hub.docker.com/v2/repositories/${ns}/${img}/tags?page_size=100&page=${page}&ordering=last_updated"
+        resp=$(curl -fsSL --max-time 15 "$url" 2>/dev/null) || true
+        [ -z "$resp" ] && break
+        # End of the tag list -- distinct from "this page had no digest match",
+        # which must NOT stop paging.
+        names=$(echo "$resp" | jq -r '.results[].name' 2>/dev/null) || true
+        [ -z "$names" ] && break
+        batch=$(echo "$resp" | jq -r --arg d "$digest" \
+            '.results[] | select(.digest == $d) | .name' 2>/dev/null) || true
+        [ -n "$batch" ] && matches="${matches}${batch}"$'\n'
+    done
+
+    echo "$matches" | grep -E "$filter" | sort -V | tail -1
+}
+
 # ─── In-place sed (macOS + Linux portable) ───────────────────────────────────
 sed_inplace() {
     local file="$1"; shift
@@ -86,12 +138,18 @@ sed_inplace() {
 }
 
 # ─── Image catalogue ─────────────────────────────────────────────────────────
-# Each entry: "LABEL|HUB_NS|HUB_IMAGE|TAG_REGEX|TYPE"
+# Each entry: "LABEL|HUB_NS|HUB_IMAGE|TAG_REGEX|TYPE[|CHANNEL]"
 # TYPE controls how the tag is read/written:
 #   standard  — `tag: "X.Y.Z"` in a values file with 2-space indent
 #   addon     — same but under a parent key (4-space indent) in addons/values.yaml
 #   inline    — `image: IMAGE:TAG` on one line (no separate tag: field)
 #   skip      — intentionally pinned, display only
+#
+# CHANNEL is optional (omit it entirely for the usual newest-tag behaviour).
+# When set, "latest" is resolved through that Docker Hub channel tag's digest
+# via fetch_latest_channel instead of by version-sorting every matching tag --
+# for upstreams running parallel release lines where the newest tag is on a
+# line we deliberately don't track. See MySQL below.
 
 IMAGES=(
     "PoolParty|ontotext|poolparty|^[0-9]+\.[0-9]+\.[0-9]+\$|standard"
@@ -105,7 +163,11 @@ IMAGES=(
     "UnifiedViews|ontotext|unifiedviews|^[0-9]+\.[0-9]+\.[0-9]+\$|addon"
     "Refine|ontotext|refine|^[0-9]+\.[0-9]+\.[0-9]+\$|addon"
     "alpine (Jobs)|library|alpine|^[0-9]+\.[0-9]+\$|inline"
-    "MySQL (federated)|library|mysql|^[0-9]+\.[0-9]+\$|inline"
+    # Tracks the LTS channel, NOT newest-overall: Oracle renumbered the
+    # innovation line to year-based versioning, so `latest`/`innovation` is
+    # 26.x while `lts` is 9.7.x. The federated demo DB rides LTS on purpose
+    # (and MySQL's in-place datadir upgrade has no downgrade path).
+    "MySQL (federated)|library|mysql|^[0-9]+\.[0-9]+\$|inline|lts"
     "PoolParty Keycloak|ontotext|poolparty-keycloak|^[0-9]+\.[0-9]+\.[0-9]+\$|skip"
 )
 
@@ -163,10 +225,12 @@ echo "${BOLD}${CYAN}Graphwise Stack — container image version check${RESET}"
 echo "${DIM}Querying Docker Hub for latest tags…${RESET}"
 echo ""
 
-declare -a LABELS CURRENT_TAGS LATEST_TAGS STATUSES IMG_NAMES IMG_TYPES IMG_NS
+declare -a LABELS CURRENT_TAGS LATEST_TAGS STATUSES IMG_NAMES IMG_TYPES IMG_NS IMG_CHANNELS
 
 for entry in "${IMAGES[@]}"; do
-    IFS='|' read -r label ns img filter type <<< "$entry"
+    # `channel` is the optional 6th field; read leaves it empty for 5-field
+    # entries, which is the newest-tag-overall behaviour.
+    IFS='|' read -r label ns img filter type channel <<< "$entry"
 
     current=$(read_current_tag "$img" "$type")
 
@@ -175,11 +239,21 @@ for entry in "${IMAGES[@]}"; do
         status="skip"
     else
         printf "  %-28s" "${label}..."
-        latest=$(fetch_latest "$ns" "$img" "$filter")
+        if [ -n "$channel" ]; then
+            latest=$(fetch_latest_channel "$ns" "$img" "$filter" "$channel")
+        else
+            latest=$(fetch_latest "$ns" "$img" "$filter")
+        fi
         if [ -z "$latest" ]; then
             latest="?"
             status="error"
-            echo "${RED}fetch failed${RESET}"
+            if [ -n "$channel" ]; then
+                # Deliberately NOT falling back to fetch_latest — that would
+                # report the off-channel tag this entry exists to avoid.
+                echo "${RED}fetch failed${RESET} ${DIM}(could not resolve '${channel}' channel)${RESET}"
+            else
+                echo "${RED}fetch failed${RESET}"
+            fi
         elif [ "$current" = "$latest" ]; then
             status="ok"
             echo "${GREEN}${latest}${RESET} ✓"
@@ -196,6 +270,7 @@ for entry in "${IMAGES[@]}"; do
     IMG_NAMES+=("$img")
     IMG_TYPES+=("$type")
     IMG_NS+=("$ns")
+    IMG_CHANNELS+=("$channel")
 done
 
 # ─── Phase 2: display summary table ──────────────────────────────────────────
@@ -210,10 +285,24 @@ for i in "${!LABELS[@]}"; do
         skip)   mark="${DIM}— pinned (latest)${RESET}" ;;
         error)  mark="${RED}? fetch failed${RESET}" ;;
     esac
+    # Channel-tracked rows are marked so "✓ up-to-date" next to a version an
+    # operator knows is superseded reads as intentional, not as a broken check.
+    label_disp="${LABELS[$i]}"
+    [ -n "${IMG_CHANNELS[$i]}" ] && label_disp="${label_disp} (${IMG_CHANNELS[$i]})"
     printf "%-28s %-16s %-16s %b\n" \
-        "${LABELS[$i]}" "${CURRENT_TAGS[$i]}" "${LATEST_TAGS[$i]}" "$mark"
+        "$label_disp" "${CURRENT_TAGS[$i]}" "${LATEST_TAGS[$i]}" "$mark"
 done
 echo "─────────────────────────────────────────────────────────────────────────"
+
+CHANNEL_ROWS=0
+for i in "${!IMG_CHANNELS[@]}"; do
+    [ -n "${IMG_CHANNELS[$i]}" ] && CHANNEL_ROWS=$((CHANNEL_ROWS + 1))
+done
+if [ "$CHANNEL_ROWS" -gt 0 ]; then
+    echo "${DIM}A channel in parentheses means that row tracks the newest tag on that${RESET}"
+    echo "${DIM}Docker Hub release channel, not the newest tag overall — a newer version${RESET}"
+    echo "${DIM}on another line is expected and is not reported as an update.${RESET}"
+fi
 
 # Count updates
 UPDATE_COUNT=0
