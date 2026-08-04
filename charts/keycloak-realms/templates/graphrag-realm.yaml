@@ -17,6 +17,14 @@ Subdomain/baseDomain resolution:
   with subdomain + baseDomain) -- we don't depend on Helm's global
   propagation (.Values.global.*) because in our chart structure
   globals don't reliably reach this subchart's render context.
+
+  NOTE (2.2.7): that last claim was re-tested and does NOT hold as a
+  general rule -- a probe global set in the umbrella's values.yaml
+  renders fine inside this subchart's templates, and 2.2.7's
+  global.alpine.image knob relies on exactly that. The explicit
+  subdomain/baseDomain wiring below is kept (it works, and
+  render-values.sh depends on it); just don't read this paragraph as
+  "globals are unusable here" when adding new umbrella-wide values.
   Without these values being set, redirectUris would render as
   `https://graphrag../*` and the chatbot login fails with
   "Invalid parameter: redirect_url".

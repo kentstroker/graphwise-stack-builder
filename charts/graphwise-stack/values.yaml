@@ -46,6 +46,27 @@ global:
   imagePullSecrets:
     - name: graphwise
 
+  # THE single alpine knob. Every helper Job across this umbrella AND
+  # its subcharts reads global.alpine.image -- there is no other alpine
+  # version string in the repo, so bumping alpine is this one line.
+  #
+  # Was 7 scattered literals (3.20 in graphdb + the three keycloak-realms
+  # Jobs + unifiedviews; 3.24 here + the vectors-index Job). Only the
+  # first was visible to check-image-versions.sh, whose inline reader
+  # scans this file for the first line matching its image-and-tag
+  # pattern -- so five Jobs silently never got bumped. Keep the entry
+  # below the only line here that matches that pattern, or the reader
+  # locks onto the wrong one. (An earlier draft of this very comment
+  # contained the pattern and did exactly that.)
+  #
+  # Consumers use `required`, not a defaulted fallback: a stale shadow
+  # default in a template would silently pin a Job to the old tag,
+  # which is exactly the failure this consolidation removes. Rendering
+  # a subchart standalone (outside the umbrella) therefore fails with
+  # a pointer back here -- intended.
+  alpine:
+    image: "alpine:3.24"
+
 ####################################################################
 # graphrag-secrets — Secrets / ConfigMap consumed by the vendored
 # graphrag chart.
@@ -171,12 +192,12 @@ keycloak:
     enabled: true
     username: poolparty_auth_admin
     password: admin
-    # Small base image; the Job apk-adds bash + curl + jq at startup
-    # and drives the Keycloak admin REST API directly. Switched away
-    # from quay.io/keycloak/keycloak because kcadm.sh in v26 silently
-    # no-ops some operations we depend on (notably adding client
-    # roles to a realm role's composite).
-    image: alpine:3.24
+    # Base image comes from global.alpine.image (top of this file).
+    # Why alpine and not the Keycloak image: the Job apk-adds bash +
+    # curl + jq at startup and drives the Keycloak admin REST API
+    # directly. Switched away from quay.io/keycloak/keycloak because
+    # kcadm.sh in v26 silently no-ops some operations we depend on
+    # (notably adding client roles to a realm role's composite).
     # Realms the bootstrap-admin Job must wait for before wiring the
     # master admin composite. Realm imports are async (operator-
     # driven) -- on a cold-cache deploy the realm-import pods pull

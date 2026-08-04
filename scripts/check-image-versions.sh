@@ -209,7 +209,7 @@ read_current_tag() {
             grep -m1 '^\s*tag:' "$vfile" | sed 's/.*tag: *"\(.*\)"/\1/'
             ;;
         inline)
-            # e.g. `image: alpine:3.20` or `image: "mysql:9.7"` — keyed on the
+            # e.g. `image: "alpine:3.24"` or `image: "mysql:9.7"` — keyed on the
             # hub image name so each inline image reads its own tag.
             grep -m1 "image:.*${img}:" "$vfile" | sed "s/.*${img}:\([^\"]*\).*/\1/" | tr -d '"'
             ;;
@@ -355,15 +355,16 @@ apply_inline_update() {
     local img="$1" old="$2" new="$3"
     local vfile
     vfile=$(primary_values_file "$img")
-    # Update `image: <img>:X.Y` style in values.yaml
+    # Update `image: <img>:X.Y` style in values.yaml.
+    #
+    # This is the ONLY place an inline image's version lives. alpine used
+    # to also be hardcoded in Job templates, which needed a special case
+    # here that patched one template by path -- and silently missed the
+    # other four. Every alpine Job now reads global.alpine.image from
+    # charts/graphwise-stack/values.yaml, so the special case is gone.
+    # If a future inline image sprouts a literal in a template, fix the
+    # template to read a value rather than re-adding a path here.
     sed_inplace "$vfile" "s/${img}:${old}/${img}:${new}/g"
-    # alpine is also hardcoded in a Job template; other inline images are not.
-    if [ "$img" = "alpine" ]; then
-        local template="charts/graphwise-stack/templates/graphrag-vectors-index-job.yaml"
-        if [ -f "$template" ]; then
-            sed_inplace "$template" "s/alpine:${old}/alpine:${new}/g"
-        fi
-    fi
 }
 
 echo ""

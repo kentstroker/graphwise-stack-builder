@@ -96,7 +96,7 @@ spec:
         - name: bootstrap
           # alpine + apk add gets us bash + curl + jq reliably from a
           # stock image. Image is ~5MB; apk add at startup is ~5s.
-          image: {{ .Values.keycloak.bootstrapAdmin.image | quote }}
+          image: {{ required "global.alpine.image must be set (see charts/graphwise-stack/values.yaml)" (((.Values.global).alpine).image) | quote }}
           imagePullPolicy: IfNotPresent
           env:
             - name: KC_SERVER
