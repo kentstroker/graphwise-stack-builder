@@ -157,7 +157,16 @@ global:
 # Pass subdomain + baseDomain explicitly to the keycloak-realms subchart.
 # Helm's globals propagation (.Values.global.* in subchart context) is
 # unreliable in our render path; explicit subchart-namespace values are
-# guaranteed to land. Without these, the graphrag realm import renders
+# guaranteed to land.
+#
+# NOTE (2.2.7): re-tested — globals DO reach these subcharts (2.2.7's
+# global.alpine.image knob depends on it, and this overlay's own
+# `global:` block merges with the chart's rather than pruning its
+# siblings). Keeping the explicit wiring below because it works and is
+# load-bearing; just don't generalize the sentence above into "never
+# use globals here" when adding new umbrella-wide values.
+#
+# Without these, the graphrag realm import renders
 # chatbot-app-client redirectUris with empty subdomain/baseDomain and
 # the chatbot login fails with "Invalid parameter: redirect_url".
 keycloak-realms:

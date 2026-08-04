@@ -59,7 +59,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: index-init
-          image: alpine:3.24
+          image: {{ required "global.alpine.image must be set (see charts/graphwise-stack/values.yaml)" (((.Values.global).alpine).image) | quote }}
           imagePullPolicy: IfNotPresent
           env:
             - name: ES_URL

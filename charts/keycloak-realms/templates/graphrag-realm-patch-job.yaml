@@ -85,7 +85,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: patch
-          image: alpine:3.20
+          image: {{ required "global.alpine.image must be set (see charts/graphwise-stack/values.yaml)" (((.Values.global).alpine).image) | quote }}
           imagePullPolicy: IfNotPresent
           env:
             - name: KC_SERVER

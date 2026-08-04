@@ -7,12 +7,12 @@ description: |
   index, same cluster).
 
   Mirrors the configuration of base.yaml's elasticsearch service:
-  ontotext/poolparty-elasticsearch:9.3.3, single-node discovery,
+  ontotext/poolparty-elasticsearch:9.3.8, single-node discovery,
   xpack.security.enabled=false. Demo-grade — no auth, no TLS,
   no production tuning. ClusterIP-only; never exposed via Ingress.
 type: application
-version: 2.2.6
-appVersion: "9.3.3"
+version: 2.2.7
+appVersion: "9.3.8"
 maintainers:
   - name: gsb
     url: https://github.com/kentstroker/graphwise-stack-builder

@@ -119,8 +119,8 @@ allowedCidrs: []
 # the Ingress).
 security:
   enabled: false
-  # Image used for the init Job. Alpine + curl is enough.
-  image: alpine:3.20
+  # Image for the init Job (alpine + curl is enough) comes from
+  # global.alpine.image, set in the umbrella's values.yaml.
   # Default password GraphDB ships with after security is first enabled.
   # GraphDB 11 default is admin/root (confirmed against the GraphDB 11.3
   # "Enabling security" docs). Override only if a future GraphDB release
