@@ -3,6 +3,9 @@
 .idea/
 .venv/
 .claude/settings.local.json
+# MCP server config — points at a per-session localhost port (e.g. the
+# PyCharm bridge), so it is machine-specific and useless to teammates.
+.mcp.json
 
 # --- Local-only material (delivered out-of-band, never pushed) ---
 /docs/
