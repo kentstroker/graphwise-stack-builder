@@ -126,15 +126,36 @@ elif ! [[ "$ADMIN_CIDR" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]]; then
 fi
 
 # ---------------------------------------------------------------------
-# Refine: detect whether the operator has dropped the vendor zip under
-# refine/ontorefine-*/. If yes, cluster-bootstrap.sh has (or will)
-# build the arm64-compatible image; auto-emit the enable + image
-# override so the chart picks up the local image. If no, leave Refine
-# at the chart default (enabled=false) -- ontotext/refine:1.2.x is
-# amd64-only and would crash-loop on Graviton.
+# Refine: pick the image that actually runs on THIS host's architecture.
+#
+# The whole bundled-dist apparatus (refine/ontorefine-1.2.1/,
+# infra/refine-image/Dockerfile, scripts/build-refine-image.sh) exists for
+# exactly ONE reason: ontotext/refine:1.2.x is amd64-only on Docker Hub
+# (manifest.v2, no manifest list), so on Graviton/arm64 the upstream image
+# dies with `exec /opt/ontorefine/dist/bin/ontorefine: exec format error`.
+#
+#   x86_64  -- that constraint does not apply. Use the upstream image
+#              directly: no local build step, and it tracks vendor releases.
+#              This is the path infra/terraform-azure provisions.
+#   arm64   -- fall through to the bundled dist, if the operator has it.
+#              cluster-bootstrap.sh has (or will) build + `kind load` it as
+#              graphwise-refine:local.
+#   neither -- leave Refine at the chart default (enabled=false), the
+#              safety net for sparse-checkout / shallow-clone edge cases.
+#
+# The uname check is FIRST so arm64 hosts reach the identical branch they
+# use today, byte for byte. Note macOS arm64 reports "arm64" and Linux
+# arm64 reports "aarch64"; neither matches x86_64, so both fall through
+# correctly without needing to be enumerated.
+#
+# Remove the x86_64 branch (and everything else here) once Graphwise
+# publishes a multi-arch tag of ontotext/refine -- see the open-issue entry
+# in CLAUDE.md.
 # ---------------------------------------------------------------------
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-if [ -d "${REPO_ROOT}/refine/ontorefine-1.2.1" ]; then
+if [ "$(uname -m)" = "x86_64" ]; then
+    REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: ontotext/refine\n      tag: "1.2.2"\n      pullPolicy: IfNotPresent'
+elif [ -d "${REPO_ROOT}/refine/ontorefine-1.2.1" ]; then
     REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: graphwise-refine\n      tag: local\n      pullPolicy: IfNotPresent'
 else
     REFINE_ENABLE_BLOCK=""
