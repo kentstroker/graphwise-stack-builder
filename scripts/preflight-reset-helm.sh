@@ -376,12 +376,40 @@ else
 fi
 
 # --------------------------------------------------------------------
-# 8. AWS / IAM (instance role required for cert-manager Route53 DNS-01)
+# 8. Route 53 DNS-01 credentials (instance role OR static key)
 # --------------------------------------------------------------------
-section "AWS instance role (for cert-manager Route53 DNS-01)"
-IMDS_TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
-             -H "X-aws-ec2-metadata-token-ttl-seconds: 60" --max-time 3 2>/dev/null || true)
-if [ -z "$IMDS_TOKEN" ]; then
+# Two valid credential paths, mirroring scripts/cluster-bootstrap.sh:
+#   - static key in the environment (non-AWS hosts, e.g. the Azure VM in
+#     infra/terraform-azure/, whose cloud-init sources ~/.graphwise-route53.env)
+#   - EC2 instance role via IMDSv2 (the AWS path, unchanged)
+#
+# The static key is checked FIRST so a non-AWS host never probes IMDS at all.
+# That ordering is deliberate: Azure also answers 169.254.169.254, but with a
+# completely different API and no role to report -- so the probe would not
+# merely fail, it would fail confusingly, and this gate would block every
+# deploy on a host that is in fact correctly configured.
+#
+# Honours the same GRAPHWISE_ROUTE53_AUTH override as cluster-bootstrap.sh
+# (auto | static | instance-role) so this gate always diagnoses the path that
+# bootstrap will actually take -- a preflight that reports on a different
+# code path than the thing it gates is worse than no preflight.
+section "Route 53 DNS-01 credentials"
+if [ "${GRAPHWISE_ROUTE53_AUTH:-auto}" != "instance-role" ] && \
+   [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    check_pass "Static Route 53 credentials present (${AWS_ACCESS_KEY_ID:0:8}...)"
+    if [ -z "${AWS_REGION:-}" ]; then
+        check_fail "AWS_REGION is not set" \
+                   "cluster-bootstrap.sh needs it for the DNS-01 solver -- add it to ~/.graphwise-route53.env"
+    fi
+    IMDS_TOKEN="skip"
+else
+    IMDS_TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+                 -H "X-aws-ec2-metadata-token-ttl-seconds: 60" --max-time 3 2>/dev/null || true)
+fi
+
+if [ "$IMDS_TOKEN" = "skip" ]; then
+    :
+elif [ -z "$IMDS_TOKEN" ]; then
     check_fail "IMDSv2 not reachable from this host" \
                "aws_instance metadata_options.http_put_response_hop_limit must be >= 2"
 else

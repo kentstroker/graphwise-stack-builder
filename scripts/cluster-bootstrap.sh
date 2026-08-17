@@ -328,18 +328,88 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 #   in-cluster HTTPS handshake fails. We tried staging-as-default;
 #   PoolParty hung forever in startup-probe loops waiting on Keycloak.
 #
-# How the Route 53 solver authenticates:
-#   cert-manager pod -> AWS SDK -> IMDSv2 (EC2 instance metadata) ->
-#   EC2 instance role -> route53:ChangeResourceRecordSets on the
-#   single hosted zone defined in terraform.tfvars (var.route53_zone_id).
-#   No AWS access key Secret needs to live in the cluster. The role's
-#   Route 53 policy is scoped to one hostedzone ARN, so even an
-#   exfiltrated role token can only edit DNS for this one zone.
+# How the Route 53 solver authenticates -- TWO paths to the SAME solver,
+# selected by capability rather than by a --cloud flag:
 #
-#   Required: aws_instance.iam_instance_profile attached (handled by
-#   Terraform; see infra/terraform-<stack>/main.tf "IAM role + instance profile").
-#   Required: http_put_response_hop_limit >= 2 in metadata_options so
-#   pods can reach IMDSv2 through the kube-proxy. Set in Terraform.
+#   AWS / EC2 (no static key in the environment):
+#     cert-manager pod -> AWS SDK -> IMDSv2 (EC2 instance metadata) ->
+#     EC2 instance role -> route53:ChangeResourceRecordSets on the
+#     single hosted zone defined in terraform.tfvars (var.route53_zone_id).
+#     No AWS access key Secret lives in the cluster. The role's Route 53
+#     policy is scoped to one hostedzone ARN, so even an exfiltrated role
+#     token can only edit DNS for this one zone.
+#
+#     Required: aws_instance.iam_instance_profile attached (handled by
+#     Terraform; see infra/terraform-<stack>/main.tf "IAM role + instance profile").
+#     Required: http_put_response_hop_limit >= 2 in metadata_options so
+#     pods can reach IMDSv2 through the kube-proxy. Set in Terraform.
+#
+#   Non-AWS host, e.g. the Azure VM in infra/terraform-azure/ (static key
+#   present in the environment):
+#     An Azure VM cannot assume an AWS IAM role, so there is no IMDS chain
+#     to ride and the credential has to be static. That module's cloud-init
+#     writes ~/.graphwise-route53.env and /etc/profile.d/graphwise.sh sources
+#     it, so AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION are in
+#     this script's environment. Their PRESENCE is the signal -- if a
+#     credential is there, use it; if not, fall back to the instance role.
+#     The IAM user behind it carries the same zone-scoped policy as the
+#     EC2 role, so the blast radius is identical.
+#
+# Effect on the AWS path: ROUTE53_AUTH expands to nothing, so the rendered
+# manifest gains one trailing blank line, which YAML ignores. The parsed
+# ClusterIssuer object is unchanged. Verified by rendering both branches
+# and comparing the parsed results.
+# Escape hatch. The capability check below is right ~always, but it has one
+# false-positive mode: an operator on an EC2 host who has exported AWS keys
+# into their shell for some unrelated reason (say, the Bedrock pair) would
+# silently get a ClusterIssuer authenticating with those keys instead of the
+# instance role -- and if they lack route53:ChangeResourceRecordSets, DNS-01
+# fails with AccessDenied and the wildcard cert never issues. That is an
+# expensive thing to debug from the symptom.
+#
+#   auto           (default) -- use static creds if present, else instance role
+#   static                   -- force static creds (fail loudly if absent)
+#   instance-role            -- force IMDSv2, ignoring any exported keys
+GRAPHWISE_ROUTE53_AUTH="${GRAPHWISE_ROUTE53_AUTH:-auto}"
+
+case "$GRAPHWISE_ROUTE53_AUTH" in
+    auto|static|instance-role) ;;
+    *) echo "ERROR: GRAPHWISE_ROUTE53_AUTH must be auto|static|instance-role (got: $GRAPHWISE_ROUTE53_AUTH)" >&2
+       exit 1 ;;
+esac
+
+if [ "$GRAPHWISE_ROUTE53_AUTH" = "static" ] && \
+   { [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; }; then
+    echo "ERROR: GRAPHWISE_ROUTE53_AUTH=static but AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are not set." >&2
+    echo "       On the Azure path these come from ~/.graphwise-route53.env via /etc/profile.d/graphwise.sh." >&2
+    exit 1
+fi
+
+if [ "$GRAPHWISE_ROUTE53_AUTH" != "instance-role" ] && \
+   [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo "Route 53 DNS-01: using STATIC credentials from the environment (non-AWS host)"
+
+    # cert-manager resolves secretAccessKeySecretRef in ITS OWN namespace.
+    # Created here rather than by Terraform so the secret never has to
+    # round-trip through a manifest on disk. The cert-manager namespace
+    # already exists (created in the Namespaces section above).
+    kubectl create secret generic route53-credentials \
+        --namespace cert-manager \
+        --from-literal=secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+    ROUTE53_AUTH=$(cat <<AUTHEOF
+            accessKeyID: ${AWS_ACCESS_KEY_ID}
+            secretAccessKeySecretRef:
+              name: route53-credentials
+              key: secret-access-key
+AUTHEOF
+)
+else
+    echo "Route 53 DNS-01: using the EC2 instance role via IMDSv2 (AWS host)"
+    ROUTE53_AUTH=""
+fi
+
 kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
@@ -356,6 +426,7 @@ spec:
           route53:
             region: ${AWS_REGION}
             hostedZoneID: ${ROUTE53_ZONE_ID}
+${ROUTE53_AUTH}
 EOF
 
 # ---------------------------------------------------------------------------
