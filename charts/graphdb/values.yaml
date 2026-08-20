@@ -15,7 +15,7 @@ namespace: ""
 
 image:
   repository: ontotext/graphdb
-  tag: "11.4.3"
+  tag: "11.5.0"
   pullPolicy: IfNotPresent
 
 # License Secret is created out-of-band by scripts/install-licenses.sh,

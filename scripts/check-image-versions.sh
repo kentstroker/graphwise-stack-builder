@@ -29,6 +29,13 @@
 #   --apply          after editing, roll the live stack (docker pull + kind
 #                    load + non-destructive helm upgrade of graphwise-stack)
 #   --timeout <dur>  helm upgrade timeout for --apply (default 15m)
+#
+# --apply must be passed on the SAME invocation as the edits. It is not a
+# second pass: once the charts carry the new tags, the next run reads them
+# back as current, reports "All images are up-to-date", and exits before the
+# apply phase. An edit-only run therefore ends by printing the exact docker
+# pull / kind load / helm upgrade commands for what it just changed, so the
+# roll is still one copy-paste away.
 
 set -uo pipefail
 
@@ -422,21 +429,82 @@ if [ "$NEEDS_DEP_UPDATE" -eq 1 ] && [ "$HAVE_HELM" -eq 1 ]; then
     echo "${GREEN}Done.${RESET}"
 fi
 
-# ─── Phase 5: (--apply) roll the live stack, non-destructively ───────────────
+# ─── Phase 5: roll the live stack (--apply), or print how to ─────────────────
+UMBRELLA_RELEASE="${UMBRELLA_RELEASE:-graphwise-stack}"
+UMBRELLA_NS="${UMBRELLA_NAMESPACE:-graphwise}"
+KIND_CLUSTER="${KIND_CLUSTER:-graphwise}"
+VALUES_DIR="${VALUES_DIR:-$HOME/.graphwise-stack}"
+
+# Locate the per-deployment umbrella values overlay (render-values.sh output).
+# Sets OVERLAY and returns 0, or leaves it empty and returns 1 when it can't
+# decide -- --apply treats that as fatal, while the edit-only path substitutes
+# a placeholder so it can still print a command.
+resolve_overlay() {
+    OVERLAY=""
+    if [ -n "${GRAPHWISE_APEX:-}" ] && [ -f "$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml" ]; then
+        OVERLAY="$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml"
+        return 0
+    fi
+    local m
+    _overlays=()
+    for m in "$VALUES_DIR"/values-*.yaml; do
+        [ -f "$m" ] || continue
+        case "$m" in *-graphrag.yaml) continue ;; esac
+        _overlays+=("$m")
+    done
+    if [ "${#_overlays[@]}" -eq 1 ]; then
+        OVERLAY="${_overlays[0]}"
+        return 0
+    fi
+    return 1
+}
+
+# The `-f` stack the helm upgrade layers on, in order: chart defaults, the
+# per-deployment overlay, then the two optional files if present. Built in one
+# place so the command the edit-only path PRINTS is the command --apply RUNS --
+# two hand-maintained copies would drift, and a printed command that omits an
+# overlay silently reverts that overlay's settings when pasted.
+build_helm_flags() {
+    HELM_F_FLAGS=(-f "charts/graphwise-stack/values.yaml" -f "$OVERLAY")
+    [ -f "$HOME/graphwise-secrets.yaml" ]      && HELM_F_FLAGS+=(-f "$HOME/graphwise-secrets.yaml")
+    [ -f "$VALUES_DIR/console-branding.yaml" ] && HELM_F_FLAGS+=(-f "$VALUES_DIR/console-branding.yaml")
+    return 0
+}
+
 if [ "$APPLY" -eq 0 ]; then
+    # Not "re-run with --apply": by now the charts carry the new tags, so a
+    # second run reads them back as current and exits at the up-to-date gate
+    # long before Phase 5. Print the real commands instead.
+    resolve_overlay || OVERLAY="$VALUES_DIR/values-<sub>.yaml"
+    build_helm_flags
+
     echo ""
-    echo "Edits saved to ./charts. Re-run with ${BOLD}--apply${RESET} to roll the live stack in place,"
-    echo "or ${DIM}git add -p && git commit${RESET} to persist the version bump."
+    echo "Edits saved to ./charts."
+    [ "$NEEDS_DEP_UPDATE" -eq 1 ] && echo "Umbrella dependency tarballs rebuilt."
+    echo ""
+    echo "${BOLD}To roll the live stack to the new image(s) in place, run from $(pwd):${RESET}"
+    echo ""
+    for ref in ${UPGRADED_REFS[@]+"${UPGRADED_REFS[@]}"}; do
+        echo "  ${CYAN}docker pull ${ref}${RESET}"
+        echo "  ${CYAN}kind load docker-image ${ref} --name ${KIND_CLUSTER}${RESET}"
+    done
+    echo "  ${CYAN}helm upgrade ${UMBRELLA_RELEASE} charts/graphwise-stack -n ${UMBRELLA_NS} ${HELM_F_FLAGS[*]} --timeout ${HELM_TIMEOUT}${RESET}"
+    echo ""
+    if [ -z "${OVERLAY##*<sub>*}" ]; then
+        echo "  ${YELLOW}NOTE${RESET}: no single values overlay found in $VALUES_DIR — substitute the"
+        echo "  real values-<sub>.yaml for this deployment before running the helm upgrade."
+        echo ""
+    fi
+    echo "${DIM}Re-running this script with --apply will NOT roll the stack: ./charts now${RESET}"
+    echo "${DIM}already carry the new tags, so the next run reports \"All images are${RESET}"
+    echo "${DIM}up-to-date\" and exits first. Pass --apply on the same invocation next time.${RESET}"
+    echo ""
+    echo "${DIM}Persist the version bump for future rebuilds: git add -p && git commit${RESET}"
     exit 0
 fi
 
 echo ""
 echo "${BOLD}${CYAN}--apply: rolling the live stack to the new image(s)…${RESET}"
-
-UMBRELLA_RELEASE="${UMBRELLA_RELEASE:-graphwise-stack}"
-UMBRELLA_NS="${UMBRELLA_NAMESPACE:-graphwise}"
-KIND_CLUSTER="${KIND_CLUSTER:-graphwise}"
-VALUES_DIR="${VALUES_DIR:-$HOME/.graphwise-stack}"
 
 # Preconditions -- fail clearly, leaving the (already-saved) chart edits in place.
 for c in helm kubectl docker kind; do
@@ -448,24 +516,10 @@ if ! helm status "$UMBRELLA_RELEASE" -n "$UMBRELLA_NS" &>/dev/null; then
     exit 1
 fi
 
-# Locate the per-deployment umbrella values overlay (render-values.sh output).
-OVERLAY=""
-if [ -n "${GRAPHWISE_APEX:-}" ] && [ -f "$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml" ]; then
-    OVERLAY="$VALUES_DIR/values-${GRAPHWISE_APEX%%.*}.yaml"
-else
-    _overlays=()
-    for m in "$VALUES_DIR"/values-*.yaml; do
-        [ -f "$m" ] || continue
-        case "$m" in *-graphrag.yaml) continue ;; esac
-        _overlays+=("$m")
-    done
-    if [ "${#_overlays[@]}" -eq 1 ]; then
-        OVERLAY="${_overlays[0]}"
-    else
-        echo "${RED}ERROR${RESET}: could not resolve a single umbrella values overlay in $VALUES_DIR (found ${#_overlays[@]})." >&2
-        echo "  Set GRAPHWISE_APEX=<sub>.<base>, or ensure exactly one values-<sub>.yaml exists." >&2
-        exit 1
-    fi
+if ! resolve_overlay; then
+    echo "${RED}ERROR${RESET}: could not resolve a single umbrella values overlay in $VALUES_DIR." >&2
+    echo "  Set GRAPHWISE_APEX=<sub>.<base>, or ensure exactly one values-<sub>.yaml exists." >&2
+    exit 1
 fi
 echo "  ${DIM}overlay:${RESET} $OVERLAY"
 
@@ -487,13 +541,11 @@ done
 # 2) Non-destructive helm upgrade, reusing the deployment's existing overlays.
 #    The new default image tags come from the rebuilt subchart tarballs; the
 #    overlays supply per-deployment hostnames/secrets. PVCs are retained.
-F_FLAGS=(-f "charts/graphwise-stack/values.yaml" -f "$OVERLAY")
-[ -f "$HOME/graphwise-secrets.yaml" ]      && F_FLAGS+=(-f "$HOME/graphwise-secrets.yaml")
-[ -f "$VALUES_DIR/console-branding.yaml" ] && F_FLAGS+=(-f "$VALUES_DIR/console-branding.yaml")
+build_helm_flags
 
 echo ""
 echo "  ${BOLD}helm upgrade $UMBRELLA_RELEASE (PVCs retained — in-place)…${RESET}"
-if ! helm upgrade "$UMBRELLA_RELEASE" charts/graphwise-stack -n "$UMBRELLA_NS" "${F_FLAGS[@]}" --timeout "$HELM_TIMEOUT"; then
+if ! helm upgrade "$UMBRELLA_RELEASE" charts/graphwise-stack -n "$UMBRELLA_NS" "${HELM_F_FLAGS[@]}" --timeout "$HELM_TIMEOUT"; then
     echo "${RED}ERROR${RESET}: helm upgrade failed. Inspect: kubectl -n $UMBRELLA_NS get pods" >&2
     exit 1
 fi
