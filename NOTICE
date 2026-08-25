@@ -1,0 +1,67 @@
+graphwise-stack-builder
+Copyright (c) 2026 Kent Stroker
+
+Licensed under the Apache License, Version 2.0 (the "License"); see the
+LICENSE file in this repository or http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+AUTHORSHIP AND AFFILIATION
+================================================================================
+
+This is a personal project by Kent Stroker. It is NOT a Graphwise product. It
+is not affiliated with, endorsed by, sponsored by, or supported by Graphwise or
+Ontotext, and it represents no official position of any employer.
+
+PoolParty, GraphDB, UnifiedViews, Ontotext, and Graphwise are trademarks of
+their respective owners. They are used here NOMINATIVELY -- solely to identify
+the software this project deploys -- and their use implies no endorsement,
+sponsorship, or affiliation. Product logo images included in the Console landing
+page are the property of their respective owners and are likewise present only
+to identify the software being deployed, not as this project's own identity.
+
+================================================================================
+SCOPE OF THIS LICENSE
+================================================================================
+
+The Apache License 2.0 applies to the files authored as part of this
+repository: the Helm charts under charts/ (excluding charts/vendor/, see
+below), the scripts under scripts/, the Terraform modules and cloud-init
+templates under infra/, and the Markdown documentation at the repository root.
+
+It does NOT grant any license or warranty covering:
+
+- The proprietary Ontotext / Graphwise product binaries and container images
+  that these charts pull at runtime -- PoolParty, GraphDB, GraphDB Enterprise
+  Edition, UnifiedViews, ADF, Semantic Workbench, and GraphViews. Those are
+  governed by separate commercial license agreements between the user and
+  Graphwise. Obtain them from Graphwise directly (https://graphwise.ai/).
+
+- The third-party open-source images the stack depends on -- Keycloak, nginx,
+  Elasticsearch, Eclipse RDF4J, MySQL, PostgreSQL, and others. Each ships under
+  its own upstream license and those terms apply when the images are pulled and
+  run.
+
+- Any trademarks or service marks of Graphwise, Ontotext, or any third-party
+  vendor whose software this stack deploys.
+
+The fact that this repository is publicly visible on GitHub grants no license to
+the Graphwise product suite or to any vendor image it depends on.
+
+================================================================================
+BUNDLED THIRD-PARTY CODE
+================================================================================
+
+charts/vendor/graphrag*/
+    Derived from https://github.com/poolparty-semantic-suite/graphrag-charts
+    Copyright the graphrag-charts authors. Licensed under the Apache License,
+    Version 2.0. A copy of the License is at charts/vendor/LICENSE and the
+    modifications made here are recorded in charts/vendor/NOTICE.
+
+================================================================================
+NO SUPPORT
+================================================================================
+
+This repository is a reference implementation for demonstration and evaluation
+only. It is not production-ready: it uses default passwords, single-replica
+services, and no HA or hardening. No support, uptime guarantee, or bug-fix
+commitment is offered, by the author or by anyone else.

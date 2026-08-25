@@ -1,0 +1,21 @@
+Bundled GraphRAG Helm charts
+============================
+
+Upstream:  https://github.com/poolparty-semantic-suite/graphrag-charts
+License:   Apache License, Version 2.0 (see ./LICENSE)
+Vendored:  graphrag, graphrag-chatbot, graphrag-components,
+           graphrag-conversation, graphrag-workflows (chart version 1.1.1,
+           appVersion 1.2.0)
+
+MODIFICATIONS
+-------------
+
+These charts have been MODIFIED from their upstream form. As required by
+Apache License 2.0 section 4(b), the changes are:
+
+- Added `graphrag/values-graphwise.yaml`: a deployment overlay that feeds
+  credentials in through Secrets materialized by the graphwise-stack umbrella
+  chart, rather than through the upstream chart's own values.
+
+Any further local delta can be reproduced by diffing this directory against the
+upstream repository at the vendored chart version.
