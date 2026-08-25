@@ -1,0 +1,18 @@
+# OPTIONAL -- document-processing dependencies for the ingest / RAG workflows.
+#
+# These serve n8n workflow pipelines that are run out-of-band and are NOT
+# shipped with this repository (see scripts/restore-workflows-dumpall.sh --
+# the workflow seed database must be supplied by the operator).
+#
+# Install only if you are running those demos:
+#     pip3 install -r requirements-ingest.txt
+
+beautifulsoup4>=4.12
+python-docx>=1.1
+rdflib>=7.0
+openpyxl>=3.1
+python-dotenv>=1.0
+pdfplumber>=0.11
+tiktoken>=0.7
+langchain-text-splitters>=0.2
+pytest>=8.0
