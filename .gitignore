@@ -8,6 +8,13 @@
 .mcp.json
 
 # --- Local-only material (delivered out-of-band, never pushed) ---
+# CLAUDE.md is the maintainer's working notebook (release narrative, bug
+# history, open issues). SECURITY_ASSESSMENT.md enumerates where real secrets
+# live. Neither belongs in a public repo. PDFs are generated artifacts; the
+# .md sources are authoritative.
+/CLAUDE.md
+/SECURITY_ASSESSMENT.md
+*.pdf
 /docs/
 /n8n/
 /n8n-workflows/
