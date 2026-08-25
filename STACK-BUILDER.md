@@ -4,8 +4,8 @@
 
 A **Helm-on-KIND** deployment of the Graphwise PoolParty ecosystem plus the GraphRAG
 chatbot suite, running on a single AWS EC2 instance (Amazon Linux 2023, Docker,
-single-node Kubernetes cluster). Designed as a personal demo environment for Graphwise
-field presales engineers; published MIT-licensed, AS-IS, no warranty, no support.
+single-node Kubernetes cluster). A personal project by Kent Stroker — not a Graphwise product, and not affiliated with, endorsed by, or supported by Graphwise or Ontotext.
+Published MIT-licensed, AS-IS, no warranty, no support.
 
 ---
 
@@ -750,7 +750,7 @@ scripts/
   create-workflows-dumpall.sh   Snapshot live workflow DB -> $HOME/workflows-pg-dumpall-<date>.sql
   check-image-versions.sh Check/upgrade image tags vs Docker Hub; --apply rolls the live stack
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
-  build-refine-image.sh   Build multi-arch Refine image from bundled dist
+  build-refine-image.sh   Build multi-arch Refine image from an operator-supplied dist
 
 files/
   licenses/               Gitignored vendor license binaries (poolparty.key,
@@ -778,7 +778,7 @@ This repo is MIT-licensed but ships without credentials or license files.
 
 Every operational script lives under `scripts/` and runs **on the EC2 host** (as `ec2-user`). Many are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
 
-> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `infra/terraform-example/scripts/` and are documented in the kit's `README.pdf`, not here.
+> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `infra/terraform-example/scripts/`, not under `scripts/` above. `manage-stacks.sh` and `stack-scp.sh` are covered under **Provisioning and bootstrap**; `pull-config.sh` and `push-config.sh` under **The pull/push-config cycle**; `check-prereqs.sh` is a self-contained macOS preflight check.
 
 ### Summary table
 
@@ -807,7 +807,7 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | **Branding, images & utilities** | | |
 | `set-logo.sh` | EC2 | Base64-encode a customer logo into a gitignored console-branding overlay |
 | `check-image-versions.sh` | EC2 | Check image tags vs Docker Hub, upgrade charts, and (`--apply`) roll the live stack in place |
-| `build-refine-image.sh` | EC2 | Build a multi-arch Refine image from the bundled dist and load it into KIND |
+| `build-refine-image.sh` | EC2 | Build a multi-arch Refine image from an operator-supplied dist and load it into KIND |
 
 ### Provisioning & deploy
 
@@ -821,7 +821,7 @@ The one-shot, non-interactive build for a brand-new stack — what the PSE kit's
 The troubleshooting workhorse: wipes and reinstalls **both** Helm releases from scratch — including PVCs, so you start from blank data — then `helm upgrade --install`s the umbrella first and graphrag second. Re-renders the per-subdomain overlay first (auto-invokes `render-values.sh`). Leaves the cluster operators and the KIND cluster untouched. Flags: `--yes` (skip the destructive-action confirm), `--skip-graphrag`. For a change that shouldn't nuke data, use `helm upgrade` directly instead.
 
 #### `render-values.sh`
-Given the subdomain, emits the two Helm values overlays this stack needs — `values-<sub>.yaml` (umbrella) and `values-<sub>-graphrag.yaml` (GraphRAG) — into `~/.graphwise-stack/`. **You usually don't run this by hand**; `reset-helm.sh` calls it twice. It also auto-emits the Refine local-image override when the bundled dist is detected.
+Given the subdomain, emits the two Helm values overlays this stack needs — `values-<sub>.yaml` (umbrella) and `values-<sub>-graphrag.yaml` (GraphRAG) — into `~/.graphwise-stack/`. **You usually don't run this by hand**; `reset-helm.sh` calls it twice. It also auto-emits the Refine local-image override when an operator-supplied dist is detected.
 
 ### Licenses, secrets & realm
 
