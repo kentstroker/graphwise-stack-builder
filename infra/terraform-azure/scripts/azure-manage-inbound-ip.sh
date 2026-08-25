@@ -23,6 +23,9 @@
 #   - Never touches a rule whose source is a service tag (Internet,
 #     VirtualNetwork, AzureLoadBalancer, ...) or 0.0.0.0/0. Only /32-style
 #     literal CIDRs are candidates.
+#   - SSH IS NEVER OPENED TO THE WORLD. Every run audits all discovered NSGs
+#     for an Allow rule that exposes port 22 to "*", "Internet" or 0.0.0.0/0,
+#     reports it loudly, and exits non-zero.
 #
 # WHY THIS IS NEEDED AT ALL: azurerm_network_security_group carries
 # lifecycle { ignore_changes = [security_rule] }, so once a stack is
@@ -45,7 +48,7 @@ fi
 
 die() { printf '%serror:%s %s\n' "$RED" "$RESET" "$*" >&2; exit 1; }
 
-usage() { sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,36p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
 APPLY=0
 ASSUME_YES=0
@@ -80,6 +83,48 @@ validate_cidr() {  # validate_cidr <value> <label>
     esac
     printf '%s' "$1" | grep -qE '^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$' \
         || die "$2 must be a literal CIDR like 203.0.113.42/32 (got: '$1')"
+}
+
+# ---------------------------------------------------------------------------
+# World-open SSH audit.
+# ---------------------------------------------------------------------------
+# The AWS twin's guard, in Azure terms. This script only ever writes literal
+# /32 sources, so refusing to CREATE world-open SSH would block nothing that
+# can happen here -- such a rule arrives from the Portal, a hand-run az call,
+# or a hand-edited NSG. So it is DETECTED on the read path, on every run.
+#
+# An NSG port field may be a single port ("22"), a range ("20-30"), "*", or the
+# plural destinationPortRanges list. All four must be treated as covering SSH
+# when they do.
+WORLD_SSH_FINDINGS=""
+
+port_covers_ssh() {  # port_covers_ssh <portspec>
+    local spec="$1" lo hi
+    [ -n "$spec" ] || return 1
+    case "$spec" in
+        '*') return 0 ;;
+        22)  return 0 ;;
+        *-*) lo="${spec%%-*}"; hi="${spec##*-}"
+             case "$lo$hi" in *[!0-9]*) return 1 ;; esac
+             [ "$lo" -le 22 ] && [ "$hi" -ge 22 ] && return 0
+             return 1 ;;
+    esac
+    return 1
+}
+
+# Azure exposes "the whole internet" under several spellings.
+src_is_world() {  # src_is_world <source-spec>
+    case "$1" in
+        '*'|Internet|0.0.0.0/0|'::/0') return 0 ;;
+    esac
+    return 1
+}
+
+proto_is_ssh_capable() {  # Tcp or "*" (any); Udp/Icmp cannot carry SSH
+    case "$1" in
+        Tcp|tcp|'*') return 0 ;;
+    esac
+    return 1
 }
 
 case "$ACTION" in
@@ -146,14 +191,18 @@ while [ "$i" -lt "$NSG_COUNT" ]; do
         "$BOLD" "$NSG_NAME" "$RESET" "$DIM" "$NSG_RG" "$NSG_SUB" "$RESET"
 
     RULES_JSON="$(az network nsg rule list $AZ_ARGS --nsg-name "$NSG_NAME" -g "$NSG_RG" \
-        --query "[?direction=='Inbound' && access=='Allow'].{name:name,port:destinationPortRange,src:sourceAddressPrefix,srcs:sourceAddressPrefixes,prio:priority}" \
+        --query "[?direction=='Inbound' && access=='Allow'].{name:name,port:destinationPortRange,ports:destinationPortRanges,proto:protocol,src:sourceAddressPrefix,srcs:sourceAddressPrefixes,prio:priority}" \
         -o json)"
 
     RULE_COUNT="$(printf '%s' "$RULES_JSON" | jq 'length')"
     j=0
     while [ "$j" -lt "$RULE_COUNT" ]; do
         R_NAME="$(printf '%s' "$RULES_JSON" | jq -r ".[$j].name")"
-        R_PORT="$(printf '%s' "$RULES_JSON" | jq -r ".[$j].port // \"*\"")"
+        # A rule uses EITHER destinationPortRange (single) or the plural
+        # destinationPortRanges list. Showing only the singular field made a
+        # plural-list rule display as "*" while the audit reported its real
+        # range -- the same rule, two different answers on one screen.
+        R_PORT="$(printf '%s' "$RULES_JSON" | jq -r ".[$j] | if (.ports|length) > 0 then (.ports|join(\",\")) else (.port // \"*\") end")"
         R_PRIO="$(printf '%s' "$RULES_JSON" | jq -r ".[$j].prio")"
         # A rule uses EITHER sourceAddressPrefix (single) or
         # sourceAddressPrefixes (list). Normalise to a comma-joined string.
@@ -161,6 +210,29 @@ while [ "$i" -lt "$NSG_COUNT" ]; do
         j=$((j + 1))
 
         printf '    %-24s prio %-5s port %-6s src %s\n' "$R_NAME" "$R_PRIO" "$R_PORT" "$R_SRC"
+
+        # --- world-open SSH audit (read-only; runs for every action) --------
+        R_PROTO="$(printf '%s' "$RULES_JSON" | jq -r ".[$((j-1))].proto // \"*\"")"
+        # a rule uses EITHER destinationPortRange (single) or the plural list
+        R_PORTS="$(printf '%s' "$RULES_JSON" | jq -r ".[$((j-1))] | if (.ports|length) > 0 then (.ports|join(\" \")) else (.port // \"\") end")"
+        if proto_is_ssh_capable "$R_PROTO"; then
+            # noglob is load-bearing: an NSG source or port of "*" is a literal
+            # value, but unquoted word-splitting would expand it against the
+            # working directory and the world-open rule would go undetected.
+            set -f
+            for _src in $(printf '%s' "$R_SRC" | tr ',' ' '); do
+                src_is_world "$_src" || continue
+                for _pspec in $R_PORTS; do
+                    if port_covers_ssh "$_pspec"; then
+                        printf '      %sDANGER: this rule exposes SSH to %s%s\n' "$RED" "$_src" "$RESET"
+                        WORLD_SSH_FINDINGS="$WORLD_SSH_FINDINGS
+$NSG_NAME|$R_NAME|$_src|$R_PROTO|$_pspec"
+                        break
+                    fi
+                done
+            done
+            set +f
+        fi
 
         # Never touch service tags or the world.
         case "$R_SRC" in
@@ -207,7 +279,31 @@ $NSG_RG|$NSG_NAME|$R_NAME|$NEW_SRC"
     printf '\n'
 done
 
-[ "$ACTION" = "inventory" ] && exit 0
+# ---------------------------------------------------------------------------
+# World-open SSH report. Printed after the full inventory so it is the last
+# thing on screen, and it forces a non-zero exit regardless of action.
+# ---------------------------------------------------------------------------
+report_world_ssh() {
+    [ -n "$WORLD_SSH_FINDINGS" ] || return 0
+    printf '\n%s############################################################%s\n' "$RED" "$RESET"
+    printf '%s# DANGER: SSH (port 22) IS OPEN TO THE ENTIRE INTERNET%s\n' "$RED" "$RESET"
+    printf '%s############################################################%s\n' "$RED" "$RESET"
+    printf '%s\n' "$WORLD_SSH_FINDINGS" | while IFS='|' read -r f_nsg f_rule f_src f_proto f_port; do
+        [ -n "$f_rule" ] || continue
+        printf '#  nsg %-22s rule %-22s src %-12s %s/%s\n' "$f_nsg" "$f_rule" "$f_src" "$f_proto" "$f_port"
+    done
+    printf '#\n'
+    printf '#  This script never creates such a rule -- it arrived out-of-band\n'
+    printf '#  (Portal edit, manual az call, or a hand-edited NSG).\n'
+    printf '#  Remove or re-scope it before this stack is used.\n'
+    printf '%s############################################################%s\n' "$RED" "$RESET"
+}
+
+if [ "$ACTION" = "inventory" ]; then
+    report_world_ssh
+    [ -n "$WORLD_SSH_FINDINGS" ] && exit 1
+    exit 0
+fi
 
 PLANNED_COUNT="$(printf '%s' "$PLANNED" | grep -c '|' || true)"
 if [ "$PLANNED_COUNT" -eq 0 ]; then
@@ -269,4 +365,8 @@ if [ -s "$FAIL_FLAG" ]; then
         "$RED" "$RESET"
     exit 1
 fi
+
+# A run that leaves SSH open to the world is not a success, whatever else it did.
+report_world_ssh
+[ -n "$WORLD_SSH_FINDINGS" ] && exit 1
 exit 0

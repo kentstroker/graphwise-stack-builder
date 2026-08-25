@@ -382,6 +382,30 @@ After that, `ssh<name>` drops you in as `ec2-user`. For scp:
 
 **Fixing lockout after your IP changes.** Each stack's security group restricts SSH/HTTP/HTTPS to your `admin_cidr` `/32`, and Terraform stops managing those rules after the first apply. When your home IP changes, run `infra/terraform-example/scripts/aws-manage-inbound-ip.sh` — it inventories every stack SG's inbound rules, then lets you `replace` the old `/32` with your new one (or `add` a `/32` on 22/80/443, `add-https` a `/32` on 443 only, or `remove` a `/32`) across selected stacks. It is dry-run by default; re-run with `--apply`. Remember to also update `admin_cidr` in that stack's `terraform.tfvars` so a future destroy/apply doesn't reintroduce the old IP.
 
+Pass `--new auto` (or just press Enter at the prompt) to use this laptop's
+detected public IP instead of typing it — the lookup is IPv4-only and rejects a
+private/loopback answer, so a captive portal or corporate proxy cannot put a
+useless CIDR into a security group. Addresses you have used before are recorded
+in `~/.graphwise-stack/laptop-ips` and offered as defaults when retiring an old
+one.
+
+**Sharing a stack temporarily.** `--open-public` allows `0.0.0.0/0` and `::/0`
+on **443 only**, so a demo can be reached without handing out a VPN or collecting
+everyone's IP. It asks you to type `open to the world` before writing, and
+`--yes` does not waive that. `--close-public` revokes every world-open rule
+again — on every port, not just the ones it added. Run it when the demo is over.
+
+**SSH is never opened to the world.** `--open-public` is structurally incapable
+of emitting anything but `tcp/443`, and the admin operations (`replace` / `add` /
+`add-https` / `remove`) reject a `/0` mask outright, so no path through this
+script can expose port 22. Because a world-open SSH rule can still arrive from
+the Console or a hand-run CLI call, **every** invocation audits the discovered
+security groups for one — including via `-1` ("all traffic") or a wide range like
+`tcp 0-65535`, and via IPv6 — reports it, and exits non-zero. `--audit` runs that
+check on its own and writes nothing, which makes it usable as a cron or CI check.
+The Azure twin, `infra/terraform-azure/scripts/azure-manage-inbound-ip.sh`,
+carries the same audit against NSG sources `*` / `Internet` / `0.0.0.0/0`.
+
 For the full post-apply build sequence, see [DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md).
 
 ---
