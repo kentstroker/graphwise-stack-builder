@@ -588,20 +588,22 @@ kind load docker-image "$KEYCLOAK_RUNTIME_IMAGE" --name "$KIND_CLUSTER_NAME"
 # Build + load the arm64-compatible Refine image
 # ---------------------------------------------------------------------------
 # ontotext/refine:1.2.x on Docker Hub is amd64-only (single-platform
-# manifest.v2). The repo ships the platform-independent zip's extracted
-# dist under refine/ontorefine-1.2.1/ (Java only, no native binaries)
-# which runs fine on arm64 under any JRE 11. Build the wrapper image
-# and `kind load` it so the chart can reference graphwise-refine:local.
-# Skip silently if the directory is somehow absent (shallow clone /
-# sparse checkout) -- the chart's refine.enabled default is false, so
-# the rest of the stack still deploys cleanly.
+# manifest.v2). If the operator has supplied their own extracted dist
+# under refine/ontorefine-1.2.1/ (Java only, no native binaries), build
+# the wrapper image -- it runs fine on arm64 under any JRE 11 -- and
+# `kind load` it so the chart can reference graphwise-refine:local.
+#
+# The dist is NOT shipped in this repo (dropped at 3.0.0), so absence
+# here is the default case, not a broken clone. Skip silently when
+# absent -- the chart's refine.enabled default is false, so the rest
+# of the stack still deploys cleanly.
 if [ -d "$REPO_ROOT/refine/ontorefine-1.2.1" ]; then
     echo "Building arm64-compatible Refine image from refine/ontorefine-1.2.1/..."
     "$REPO_ROOT/scripts/build-refine-image.sh"
 else
     echo "No Refine distribution at refine/ontorefine-1.2.1/ -- skipping"
-    echo "  Refine image build. Check your clone (shallow / sparse?) if you"
-    echo "  expected Refine on this deploy."
+    echo "  Refine image build. The dist is not shipped in this repo; supply"
+    echo "  your own extracted dist there if you need Refine on arm64."
 fi
 
 # ---------------------------------------------------------------------------

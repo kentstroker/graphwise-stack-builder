@@ -46,11 +46,11 @@ if [ ! -d "$DIST_DIR" ]; then
 ${RED}ERROR:${RESET} Refine distribution missing at:
     $DIST_DIR
 
-The extracted Refine 1.2.1 platform-independent dist normally ships
-checked in to the repo. If it's missing here, you're probably on a
-shallow / partial clone -- re-run \`git clone\` against this repo
-without --depth, or \`git checkout\` the refine/ subtree if you're
-on a sparse-checkout.
+The extracted Refine 1.2.1 platform-independent dist is NOT shipped in
+this repo (dropped at 3.0.0 -- ontotext/refine is amd64-only upstream,
+so arm64 operators need this separately-built image). Obtain the dist
+from Graphwise and extract it to refine/ontorefine-<version>/ (this
+script currently expects 1.2.1) before re-running this script.
 
 Set REFINE_IMAGE or KIND_CLUSTER_NAME if you need different names.
 EOF

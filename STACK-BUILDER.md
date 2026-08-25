@@ -755,8 +755,9 @@ scripts/
 files/
   licenses/               Gitignored vendor license binaries (poolparty.key,
                            graphdb.license, uv-license.key)
-  refine/ontorefine-1.2.1/ Bundled platform-independent Ontotext Refine dist
-                           (amd64-only upstream image; this avoids the ARM64 crash)
+  refine/ontorefine-1.2.1/ Operator-supplied platform-independent Ontotext Refine
+                           dist (not shipped since 3.0.0; amd64-only upstream
+                           image, so arm64 hosts must obtain + extract their own)
 ```
 
 ---
