@@ -130,10 +130,32 @@ fi
 echo
 echo "=== Stack quiesced ==="
 echo
-INSTANCE_ID=$(curl -fsS -m 2 -H "X-aws-ec2-metadata-token: $(curl -fsS -m 2 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token 2>/dev/null)" http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "<your-instance-id>")
-REGION=$(curl -fsS -m 2 -H "X-aws-ec2-metadata-token: $(curl -fsS -m 2 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token 2>/dev/null)" http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo "<your-region>")
+# --- Which cloud are we on? -------------------------------------------------
+# AWS IMDSv2 requires a token PUT; Azure's IMDS answers the same address with a
+# different API and no such endpoint, so a failed token fetch is a reliable
+# negative. Detection matters because the two clouds have OPPOSITE park
+# semantics: an EC2 stop halts compute billing, while an Azure VM that is
+# merely Stopped KEEPS billing -- only `az vm deallocate` stops the meter.
+CLOUD="unknown"
+IMDS_TOKEN=$(curl -fsS -m 2 -X PUT \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
+    http://169.254.169.254/latest/api/token 2>/dev/null || true)
+if [ -n "$IMDS_TOKEN" ]; then
+    CLOUD="aws"
+elif curl -fsS -m 2 -H 'Metadata: true' \
+        'http://169.254.169.254/metadata/instance?api-version=2021-02-01' \
+        >/dev/null 2>&1; then
+    CLOUD="azure"
+fi
 
-cat <<EOF
+case "$CLOUD" in
+  aws)
+    INSTANCE_ID=$(curl -fsS -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+        http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || echo "<your-instance-id>")
+    REGION=$(curl -fsS -m 2 -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+        http://169.254.169.254/latest/meta-data/placement/region 2>/dev/null || echo "<your-region>")
+
+    cat <<EOF
 Now stop the EC2 instance. Two ways:
 
   AWS Console:
@@ -164,3 +186,25 @@ every boot, so in the common case the stack comes back hands-off -- no
 manual scale-up, no helm upgrade. Run cluster-resume.sh yourself only if
 you want to watch it, or if the unit is disabled.
 EOF
+    ;;
+  azure)
+    cat <<'EOF'
+Now DEALLOCATE the Azure VM.
+
+  infra/azure/scripts/azure-vm-power.sh deallocate
+
+WARNING: `az vm stop` and `sudo shutdown` both leave the VM in a state the
+Portal shows as "Stopped" while it CONTINUES to bill for compute. Only
+`az vm deallocate` stops the meter.
+EOF
+    ;;
+  *)
+    cat <<'EOF'
+Now stop the VM from your cloud provider's console.
+
+  AWS:   aws ec2 stop-instances --instance-ids <id> --region <region>
+  Azure: infra/azure/scripts/azure-vm-power.sh deallocate
+         (a merely-Stopped Azure VM keeps billing; deallocate is required)
+EOF
+    ;;
+esac
