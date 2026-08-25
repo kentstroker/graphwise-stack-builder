@@ -46,8 +46,12 @@ crash.log
 **/workflows*.sql
 **/n8n-pg-dumpall*.sql
 
-# Refine platform-independent dist source archive — 153 MB, exceeds GitHub 100 MB hard limit
-refine/*.zip
+# --- Bundled Ontotext Refine distribution: NEVER committed ---
+#     Dropped at 3.0.0. `ontotext/refine` is amd64-only upstream, so an arm64
+#     operator must supply their own extracted dist at refine/ontorefine-<ver>/.
+#     scripts/cluster-bootstrap.sh and scripts/render-values.sh both detect its
+#     presence with `[ -d ]` and skip cleanly when absent.
+/refine/
 
 # local kubectl/command scratchpad (never commit)
 /foo
