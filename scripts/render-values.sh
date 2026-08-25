@@ -152,24 +152,13 @@ fi
 # publishes a multi-arch tag of ontotext/refine -- see the open-issue entry
 # in CLAUDE.md.
 # ---------------------------------------------------------------------
-#
-# REFINE_GLOBAL_LINE feeds the SAME detection into global.refineEnabled so
-# the console landing page's Refine card (charts/console/files/index.html)
-# can guard itself with the safe-navigation `((.Values.global).refineEnabled)`
-# and omit the card -- including its GraphDB connection instructions -- when
-# Refine was not actually enabled. This script is the single writer for
-# both the addons.refine.enabled block below and this global, so the two
-# consumers can never disagree.
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$(uname -m)" = "x86_64" ]; then
     REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: ontotext/refine\n      tag: "1.2.2"\n      pullPolicy: IfNotPresent'
-    REFINE_GLOBAL_LINE=$'\n  refineEnabled: true'
 elif [ -d "${REPO_ROOT}/refine/ontorefine-1.2.1" ]; then
     REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: graphwise-refine\n      tag: local\n      pullPolicy: IfNotPresent'
-    REFINE_GLOBAL_LINE=$'\n  refineEnabled: true'
 else
     REFINE_ENABLE_BLOCK=""
-    REFINE_GLOBAL_LINE=""
 fi
 
 # ---------------------------------------------------------------------
@@ -184,7 +173,7 @@ render_umbrella() {
 
 global:
   subdomain: "${SUB}"
-  baseDomain: "${BASE}"${REFINE_GLOBAL_LINE}
+  baseDomain: "${BASE}"
 
 # Pass subdomain + baseDomain explicitly to the keycloak-realms subchart.
 # Helm's globals propagation (.Values.global.* in subchart context) is
