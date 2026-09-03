@@ -172,7 +172,7 @@ keycloak:
   # Pre-loaded into KIND by cluster-bootstrap.sh so this name doesn't
   # need to be reachable from inside the cluster.
   # Pinned to 2.5.0: this tag ships the 10.3 multi-client realm (ppt/ppgs/
-  # extractor/recommender/graphdb) that poolparty:10.3.0's role migration
+  # extractor/recommender/graphdb) that poolparty:10.3.1's role migration
   # requires. Its Keycloak server is still 25.0.6, matching the operator pin
   # in cluster-bootstrap.sh -- no operator bump needed. Do NOT float on
   # :latest (Docker Hub :latest is a stale 2.1.x/single-client realm).
