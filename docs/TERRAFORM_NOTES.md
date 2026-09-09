@@ -18,9 +18,9 @@ AWS resources:
 |---|---|
 | `aws_security_group.stack` | Inbound: SSH, HTTP (port 80), and HTTPS (port 443) all restricted to `admin_cidr`. Outbound: all. `ignore_changes = [ingress]` so manual SG additions (EC2 Instance Connect) survive future applies. LE cert issuance uses DNS-01 exclusively — no inbound port required. |
 | `aws_instance.stack` | EC2 instance (default `r6g.2xlarge`, AL2023 ARM64, 100 GiB encrypted gp3). `ignore_changes = [ami, user_data_base64]` prevents AMI-lookup drift and user-data edits from forcing a rebuild. |
-| `aws_iam_role` + `aws_iam_instance_profile` | EC2 instance role with a single inline policy (`graphwise-stack-route53`) granting `route53:ChangeResourceRecordSets` + `route53:ListResourceRecordSets` scoped to the hosted zone ARN built from `route53_zone_id`. cert-manager uses this role (via IMDSv2) for DNS-01 wildcard cert issuance. |
+| `aws_iam_role` + `aws_iam_instance_profile` | EC2 instance role with a single inline policy (`graphwise-cert-manager-route53`) granting `route53:ChangeResourceRecordSets` + `route53:ListResourceRecordSets` scoped to the hosted zone ARN built from `route53_zone_id`. cert-manager uses this role (via IMDSv2) for DNS-01 wildcard cert issuance. |
 | `aws_eip_association` **or** `aws_eip` | If `existing_eip_allocation_id` is set: associates the pre-allocated EIP (EIP itself lives outside Terraform; destroy only detaches). If the var is empty: creates a fresh EIP that is released on destroy. Always use the pre-allocated path — a fresh EIP means re-doing DNS after every rebuild. |
-| `random_id.n8n_key` | Generates the 32-byte `n8n_encryption_key` once. Stored in Terraform state; never regenerated unless `terraform destroy`+apply. Changing it makes every saved n8n credential unreadable. |
+| `random_id.n8n_encryption_key` | Generates the 24-byte `n8n_encryption_key` once. Stored in Terraform state; never regenerated unless `terraform destroy`+apply. Changing it makes every saved n8n credential unreadable. |
 
 What the module does **not** manage: DNS records, license files, Kubernetes objects,
 Helm releases, Let's Encrypt certs, IAM user creation (Terraform or Bedrock users —
@@ -106,7 +106,11 @@ Notable optional variables:
 ## `user-data.sh.tpl` — cloud-init bootstrap deep dive
 
 This file is the EC2 first-boot script. Terraform renders it via `templatefile()`,
-base64-encodes the result, and passes it as `user_data` on `aws_instance.stack`.
+then gzips and base64-encodes the result before passing it as `user_data` on
+`aws_instance.stack`. The gzip step is required headroom: inlining
+`graphwise-secrets.yaml`, `n8n.txt`, and the license files as base64 pushes the
+raw multipart past AWS's 16 KB `user_data` cap, and gzip brings the payload
+back to roughly 10 KB.
 AWS injects it into the instance at first boot; cloud-init runs it as root once.
 Output goes to `/var/log/bootstrap.log` and the system journal (`logger -t bootstrap`).
 
@@ -129,7 +133,7 @@ Output goes to `/var/log/bootstrap.log` and the system journal (`logger -t boots
 | `${route53_zone_id}` | `var.route53_zone_id` | Written to `/etc/profile.d/graphwise.sh` as `ROUTE53_ZONE_ID`; consumed by `cluster-bootstrap.sh` to create the cert-manager ClusterIssuer |
 | `${aws_region}` | `var.region` | Written to `/etc/profile.d/graphwise.sh` as `AWS_REGION` |
 | `${le_email}` | `var.le_email` | Written to `/etc/profile.d/graphwise.sh` as `LE_EMAIL` |
-| `${n8n_encryption_key}` | `random_id.n8n_key.b64_std` | Written into `~/graphwise-secrets.yaml` under `n8nEncryption.key` |
+| `${n8n_encryption_key}` | `random_id.n8n_encryption_key.hex` | Written into `~/graphwise-secrets.yaml` under `n8nEncryption.key` |
 | `${graphwise_secrets_b64}` | `filebase64(local.secrets_file)` | Operator's pre-filled `graphwise-secrets.yaml`, inlined as base64. If absent, renders as empty string and a placeholder secrets file is written. |
 | `${n8n_txt_b64}` | `filebase64(local.n8n_txt_file)` | `n8n.txt` (AWS credentials for n8n) |
 | `${poolparty_key_b64}` | `filebase64(...)` | PoolParty license key |
