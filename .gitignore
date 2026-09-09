@@ -2,7 +2,9 @@
 .DS_Store
 .idea/
 .venv/
-.claude/settings.local.json
+# Agent/tooling scratch directories. Machine-local, not part of the product.
+/.claude/
+/.superpowers/
 # MCP server config — points at a per-session localhost port (e.g. the
 # PyCharm bridge), so it is machine-specific and useless to teammates.
 .mcp.json
@@ -53,12 +55,13 @@ crash.log
 **/workflows*.sql
 **/n8n-pg-dumpall*.sql
 
-# --- Bundled Ontotext Refine distribution: NEVER committed ---
-#     Dropped at 3.0.0. `ontotext/refine` is amd64-only upstream, so an arm64
-#     operator must supply their own extracted dist at refine/ontorefine-<ver>/.
-#     scripts/cluster-bootstrap.sh and scripts/render-values.sh both detect its
-#     presence with `[ -d ]` and skip cleanly when absent.
+# --- Ontotext Refine: not shipped ---
+#     Dropped at 3.0.0. The chart still carries a refine subchart, disabled by
+#     default, that an amd64 operator can enable against the upstream
+#     `ontotext/refine` image. The arm64 local-build path (a vendor dist under
+#     refine/, plus infra/refine-image/) is not part of the release.
 /refine/
+/infra/refine-image/
 
 # local kubectl/command scratchpad (never commit)
 /foo

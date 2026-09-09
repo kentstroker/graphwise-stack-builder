@@ -430,9 +430,8 @@ addons:
     # canonical deploy targets AL2023 Graviton (arm64), where the pod
     # crashes immediately with `exec /opt/ontorefine/dist/bin/ontorefine:
     # exec format error`. Flip to true ONLY on an amd64-instance deploy
-    # (e.g. swap `instance_type` to a non-r6g family in tfvars). See
-    # tracked as a vendor-side request to
-    # publish a multi-arch tag.
+    # (e.g. swap `instance_type` to a non-r6g family in tfvars). A
+    # multi-arch tag is a tracked vendor-side request.
     enabled: false
     externalUrl: ""
     allowedCidrs: []

@@ -738,8 +738,6 @@ charts/
 infra/
   kind/kind-config.yaml   Single-node KIND cluster definition (host port mappings,
                            extraMounts for staging-data)
-  refine-image/Dockerfile Builds a multi-arch Refine image from an operator-supplied
-                           distribution (see scripts/build-refine-image.sh)
   terraform-aws/          AWS module: EC2, SG, IAM role, EIP association, cloud-init
                            bootstrap, AMI data source. The default deployment path;
                            internals documented in TERRAFORM_NOTES.md
@@ -782,18 +780,10 @@ scripts/                  EC2-side lifecycle scripts (run on the instance)
                            has drifted between clouds
   aws-retag-account.sh    Bulk-retag existing AWS resources to the module's tag scheme
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
-  build-refine-image.sh   Build multi-arch Refine image from an operator-supplied dist
 
 files/
   licenses/               Gitignored vendor license binaries (poolparty.key,
                            graphdb.license, uv-license.key)
-
-refine/
-  ontorefine-<version>/   Operator-supplied Ontotext Refine distribution, gitignored.
-                           Not shipped since 3.0.0 — the upstream image is amd64-only,
-                           so an arm64 host must obtain and extract its own. Both
-                           cluster-bootstrap.sh and render-values.sh detect its
-                           absence and skip cleanly.
 ```
 
 ## External user notes
@@ -841,7 +831,6 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | **Branding, images & utilities** | | |
 | `set-logo.sh` | EC2 | Base64-encode a customer logo into a gitignored console-branding overlay |
 | `check-image-versions.sh` | EC2 | Check image tags vs Docker Hub, upgrade charts, and (`--apply`) roll the live stack in place |
-| `build-refine-image.sh` | EC2 | Build a multi-arch Refine image from an operator-supplied dist and load it into KIND |
 
 ### Provisioning & deploy
 
@@ -905,6 +894,3 @@ Base64-encodes a customer logo PNG into a persistent, gitignored Helm overlay (`
 
 #### `check-image-versions.sh`
 The in-place stack updater. Reads the current image tag from every chart values file, fetches the latest published semver tag for each image from Docker Hub, prints a comparison table, and offers to upgrade each outdated image interactively — editing the chart values under `~/gsb/charts` and rebuilding the umbrella's bundled tarballs (`helm dependency update`). With **`--apply`** it then rolls the *running* stack to the new images **without a destroy**: for each accepted upgrade it `docker pull`s the new tag and `kind load`s it into the cluster, then does a non-destructive `helm upgrade` of the `graphwise-stack` (umbrella) release — every catalogued image lives there — reusing the deployment's existing values overlays, so PVCs (and data) are retained. Without `--apply` it only edits the charts (re-run with `--apply`, or commit the bump). Flags: `--yes` (accept all), `--apply` (roll the live stack), `--timeout <dur>` (helm upgrade timeout, default 15m). Runs on the EC2; needs `curl`+`jq` (plus `helm`/`docker`/`kind`/`kubectl` for `--apply`).
-
-#### `build-refine-image.sh`
-Wraps the platform-independent Ontotext Refine ZIP (a pure-Java app, no native binaries) in an arm64-compatible JRE container and loads it into KIND as `graphwise-refine:local`. It exists because `ontotext/refine:1.2.x` on Docker Hub is amd64-only while the canonical deploy is AL2023 Graviton (arm64). The ZIP is gitignored (~330 MB vendor binary) — extract it once under `refine/ontorefine-1.2.1/`. Idempotent, and auto-run by `cluster-bootstrap.sh`.

@@ -585,26 +585,13 @@ docker pull "$KEYCLOAK_RUNTIME_IMAGE"
 kind load docker-image "$KEYCLOAK_RUNTIME_IMAGE" --name "$KIND_CLUSTER_NAME"
 
 # ---------------------------------------------------------------------------
-# Build + load the arm64-compatible Refine image
+# Refine
 # ---------------------------------------------------------------------------
-# ontotext/refine:1.2.x on Docker Hub is amd64-only (single-platform
-# manifest.v2). If the operator has supplied their own extracted dist
-# under refine/ontorefine-1.2.1/ (Java only, no native binaries), build
-# the wrapper image -- it runs fine on arm64 under any JRE 11 -- and
-# `kind load` it so the chart can reference graphwise-refine:local.
-#
-# The dist is NOT shipped in this repo (dropped at 3.0.0), so absence
-# here is the default case, not a broken clone. Skip silently when
-# absent -- the chart's refine.enabled default is false, so the rest
-# of the stack still deploys cleanly.
-if [ -d "$REPO_ROOT/refine/ontorefine-1.2.1" ]; then
-    echo "Building arm64-compatible Refine image from refine/ontorefine-1.2.1/..."
-    "$REPO_ROOT/scripts/build-refine-image.sh"
-else
-    echo "No Refine distribution at refine/ontorefine-1.2.1/ -- skipping"
-    echo "  Refine image build. The dist is not shipped in this repo; supply"
-    echo "  your own extracted dist there if you need Refine on arm64."
-fi
+# Not built or loaded here. ontotext/refine:1.2.x on Docker Hub is amd64-only
+# (single-platform manifest.v2), and the local wrapper-image build that used to
+# make it run on arm64 was dropped at 3.0.0 along with the vendor dist. The
+# chart's refine.enabled defaults to false; on an amd64 instance
+# render-values.sh enables it against the upstream image directly.
 
 # ---------------------------------------------------------------------------
 # metrics-server (for HPA + `kubectl top`)

@@ -155,15 +155,13 @@ fi
 # ---------------------------------------------------------------------
 # Refine: pick the image that actually runs on THIS host's architecture.
 #
-# The whole bundled-dist apparatus (refine/ontorefine-1.2.1/,
-# infra/refine-image/Dockerfile, scripts/build-refine-image.sh) exists for
-# exactly ONE reason: ontotext/refine:1.2.x is amd64-only on Docker Hub
-# (manifest.v2, no manifest list), so on Graviton/arm64 the upstream image
-# dies with `exec /opt/ontorefine/dist/bin/ontorefine: exec format error`.
+# ontotext/refine:1.2.x is amd64-only on Docker Hub (manifest.v2, no manifest
+# list), so on Graviton/arm64 the upstream image dies with
+# `exec /opt/ontorefine/dist/bin/ontorefine: exec format error`. The local
+# wrapper-image build that worked around that was dropped at 3.0.0.
 #
 #   x86_64  -- that constraint does not apply. Use the upstream image
 #              directly: no local build step, and it tracks vendor releases.
-#              This is the path a non-AWS cloud VM provisions.
 #   arm64   -- fall through to the bundled dist, if the operator has it.
 #              cluster-bootstrap.sh has (or will) build + `kind load` it as
 #              graphwise-refine:local.
@@ -182,8 +180,6 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$(uname -m)" = "x86_64" ]; then
     REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: ontotext/refine\n      tag: "1.2.2"\n      pullPolicy: IfNotPresent'
-elif [ -d "${REPO_ROOT}/refine/ontorefine-1.2.1" ]; then
-    REFINE_ENABLE_BLOCK=$'\n    enabled: true\n    image:\n      repository: graphwise-refine\n      tag: local\n      pullPolicy: IfNotPresent'
 else
     REFINE_ENABLE_BLOCK=""
 fi
