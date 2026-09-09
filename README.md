@@ -16,9 +16,9 @@ It is a **demo / evaluation** environment — not production-ready (default pass
 
 ## 📖 Read the full guide
 
-**For everything — architecture, prerequisites, AWS/DNS setup, deploy, day-2 lifecycle, app URLs & credentials, and a per-script reference appendix — see [STACK-BUILDER.md](STACK-BUILDER.md).**
+**For everything — architecture, prerequisites, AWS/DNS setup, deploy, day-2 lifecycle, app URLs & credentials, and a per-script reference appendix — see [STACK-BUILDER.md](docs/STACK-BUILDER.md).**
 
-For the Terraform module internals and `user-data.sh.tpl` bootstrap sequence, see [TERRAFORM_NOTES.md](TERRAFORM_NOTES.md).
+For the Terraform module internals and `user-data.sh.tpl` bootstrap sequence, see [TERRAFORM_NOTES.md](docs/TERRAFORM_NOTES.md).
 
 ## License
 
