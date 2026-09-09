@@ -5,7 +5,7 @@
 A **Helm-on-KIND** deployment of the Graphwise PoolParty ecosystem plus the GraphRAG
 chatbot suite, running on a single AWS EC2 instance (Amazon Linux 2023, Docker,
 single-node Kubernetes cluster). A personal project by Kent Stroker — not a Graphwise product, and not affiliated with, endorsed by, or supported by Graphwise or Ontotext.
-Published under the Apache License 2.0, AS-IS, no warranty, no support (see [NOTICE](NOTICE) for what the license does and does not cover).
+Published under the Apache License 2.0, AS-IS, no warranty, no support (see [NOTICE](../NOTICE) for what the license does and does not cover).
 
 ---
 
@@ -790,7 +790,7 @@ files/
 
 ## External user notes
 
-This repo is licensed under the Apache License 2.0 (see [NOTICE](NOTICE) for what the license does not cover) but ships without credentials or license files.
+This repo is licensed under the Apache License 2.0 (see [NOTICE](../NOTICE) for what the license does not cover) but ships without credentials or license files.
 
 1. **Domain** — you need a domain whose DNS is hosted in Route 53 (so cert-manager can write the `_acme-challenge` TXT records). Transfer NS delegation to a Route 53 hosted zone if the domain is registered elsewhere.
 2. **AWS account** — any account works. Provision the two IAM users per § Prerequisites → AWS IAM setup.
