@@ -191,7 +191,7 @@ EOF
     cat <<'EOF'
 Now DEALLOCATE the Azure VM.
 
-  infra/azure/scripts/azure-vm-power.sh deallocate
+  az vm deallocate --resource-group <rg> --name <vm>
 
 WARNING: `az vm stop` and `sudo shutdown` both leave the VM in a state the
 Portal shows as "Stopped" while it CONTINUES to bill for compute. Only
@@ -203,7 +203,7 @@ EOF
 Now stop the VM from your cloud provider's console.
 
   AWS:   aws ec2 stop-instances --instance-ids <id> --region <region>
-  Azure: infra/azure/scripts/azure-vm-power.sh deallocate
+  Azure: az vm deallocate --resource-group <rg> --name <vm>
          (a merely-Stopped Azure VM keeps billing; deallocate is required)
 EOF
     ;;

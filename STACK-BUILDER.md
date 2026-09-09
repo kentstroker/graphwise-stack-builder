@@ -75,7 +75,6 @@ Published under the Apache License 2.0, AS-IS, no warranty, no support (see [NOT
 | I want to… | Go to… |
 |---|---|
 | Deploy a new stack on AWS | This file (§ Prerequisites, then § Provisioning and bootstrap) |
-| Deploy on Azure instead of AWS | [infra/terraform-azure/README.md](infra/terraform-azure/README.md) |
 | Understand what's running and why | This file (§ Architecture, § How a request gets routed) |
 | See all URLs and credentials | This file (§ App URLs and credentials) |
 | Understand the Terraform module and `user-data.sh.tpl` | [infra/TERRAFORM_NOTES.md](TERRAFORM_NOTES.md) |
@@ -404,9 +403,6 @@ the Console or a hand-run CLI call, **every** invocation audits the discovered
 security groups for one — including via `-1` ("all traffic") or a wide range like
 `tcp 0-65535`, and via IPv6 — reports it, and exits non-zero. `--audit` runs that
 check on its own and writes nothing, which makes it usable as a cron or CI check.
-The Azure twin, `infra/terraform-azure/scripts/azure-manage-inbound-ip.sh`,
-carries the same audit against NSG sources `*` / `Internet` / `0.0.0.0/0`.
-
 For the full post-apply build sequence, see § Provisioning and bootstrap above.
 
 ---
@@ -759,11 +755,8 @@ infra/
       push-config.sh      Restore a pull-config.sh snapshot to a freshly-provisioned EC2
       aws-manage-inbound-ip.sh  Inventory and edit the admin /32 rules on every stack
                            security group when your IP changes (dry-run by default)
-  terraform-azure/        Azure module: the same stack on an Azure VM instead of EC2.
-                           DNS and cert issuance still go through Route 53. Self-
-                           contained, with its own README.md covering the differences
 
-scripts/                  EC2/VM-side lifecycle scripts (run on the instance)
+scripts/                  EC2-side lifecycle scripts (run on the instance)
   cluster-bootstrap.sh    One-time: install ingress-nginx, cert-manager, CNPG,
                            Keycloak operator, metrics-server, Dashboard, kube-prometheus
   cluster-resume.sh       Restart KIND after EC2 stop/start (also invoked by systemd)

@@ -55,7 +55,7 @@ grafana:
   ingress:
     enabled: false
   # Default chart admin password is "prom-operator" -- well-known.
-  # Rotate before any non-demo use. SETUP/CHEATSHEET document this.
+  # Rotate before any non-demo use. See STACK-BUILDER.md "App URLs and credentials".
   adminPassword: "demo-graphwise-2026"
   defaultDashboardsTimezone: browser
   resources:

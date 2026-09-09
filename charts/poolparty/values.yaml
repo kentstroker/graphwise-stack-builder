@@ -106,8 +106,7 @@ cors:
 # feature -- after a successful deploy you must also create a
 # Taxonomy Advisor instance in PoolParty's SMC (External Services
 # → Taxonomy Advisor → Create instance) using an API key issued by
-# your Graphwise rep. See QUICKSTART §18 / CONSOLE-GUIDE PoolParty
-# Thesaurus section.
+# your Graphwise rep. See STACK-BUILDER.md "App URLs and credentials".
 llm:
   enabled: false
   api: bedrock

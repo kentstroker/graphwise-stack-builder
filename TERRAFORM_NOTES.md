@@ -5,8 +5,7 @@
 This document covers how the Terraform module is structured, what each file does,
 and how `user-data.sh.tpl` bootstraps the EC2 instance. For the full step-by-step
 deploy walkthrough see [STACK-BUILDER.md](STACK-BUILDER.md) § Prerequisites and
-§ Provisioning and bootstrap. The Azure variant is documented separately in
-[infra/terraform-azure/README.md](infra/terraform-azure/README.md).
+§ Provisioning and bootstrap.
 
 ---
 

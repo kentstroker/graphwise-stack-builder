@@ -379,8 +379,8 @@ fi
 # 8. Route 53 DNS-01 credentials (instance role OR static key)
 # --------------------------------------------------------------------
 # Two valid credential paths, mirroring scripts/cluster-bootstrap.sh:
-#   - static key in the environment (non-AWS hosts, e.g. the Azure VM in
-#     infra/terraform-azure/, whose cloud-init sources ~/.graphwise-route53.env)
+#   - static key in the environment (non-AWS hosts, whose cloud-init sources
+#     ~/.graphwise-route53.env)
 #   - EC2 instance role via IMDSv2 (the AWS path, unchanged)
 #
 # The static key is checked FIRST so a non-AWS host never probes IMDS at all.

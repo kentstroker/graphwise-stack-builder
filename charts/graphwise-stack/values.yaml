@@ -386,7 +386,7 @@ poolparty:
   # Backend wiring alone isn't enough -- after a successful deploy
   # the operator must also create a Taxonomy Advisor instance in
   # PoolParty's SMC using an API key issued by Graphwise.
-  # QUICKSTART §18 / CONSOLE-GUIDE PoolParty Thesaurus walk through it.
+  # STACK-BUILDER.md "App URLs and credentials" walks through it.
   llm:
     enabled: true
     api: bedrock

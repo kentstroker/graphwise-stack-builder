@@ -344,7 +344,7 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 #     Required: http_put_response_hop_limit >= 2 in metadata_options so
 #     pods can reach IMDSv2 through the kube-proxy. Set in Terraform.
 #
-#   Non-AWS host, e.g. the Azure VM in infra/terraform-azure/ (static key
+#   Non-AWS host, e.g. a VM on another cloud (static key
 #   present in the environment):
 #     An Azure VM cannot assume an AWS IAM role, so there is no IMDS chain
 #     to ride and the credential has to be static. That module's cloud-init

@@ -163,7 +163,7 @@ fi
 #
 #   x86_64  -- that constraint does not apply. Use the upstream image
 #              directly: no local build step, and it tracks vendor releases.
-#              This is the path infra/terraform-azure provisions.
+#              This is the path a non-AWS cloud VM provisions.
 #   arm64   -- fall through to the bundled dist, if the operator has it.
 #              cluster-bootstrap.sh has (or will) build + `kind load` it as
 #              graphwise-refine:local.

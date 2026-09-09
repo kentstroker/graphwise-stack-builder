@@ -2,7 +2,7 @@
 # check-script-drift.sh -- catch the two copies of a shared laptop script
 # drifting apart.
 #
-# infra/<cloud>/ trees are deliberately self-contained: AWS and Azure are kept
+# infra/<cloud>/ trees are deliberately self-contained: each cloud is kept
 # distinctly separate, so the cloud-agnostic operator scripts (manage-stacks.sh,
 # stack-scp.sh, pull-config.sh, push-config.sh) are DUPLICATED into each cloud's
 # scripts/ directory rather than shared from one place. That is a deliberate
