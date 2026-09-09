@@ -145,6 +145,7 @@ if ! grep -q "KUBECONFIG=" "/home/$TARGET_USER/.bashrc" 2>/dev/null; then
 export KUBECONFIG="$HOME/.kube/config"
 alias kp='kubectl get pods -A'
 alias kga='kubectl get all --all-namespaces'
+alias showpods='kubectl get pods -A'
 alias bootlog='tail -f /var/log/bootstrap.log'
 RCEOF
     chown "$TARGET_USER:$TARGET_USER" "/home/$TARGET_USER/.bashrc"

@@ -124,10 +124,12 @@ existing_eip_allocation_id = "eipalloc-CHANGEME"
 # variable adds an explicit override path for intentional AMI upgrades.)
 # ami_override = "ami-0123456789abcdef0"
 
-# Extra tags to attach to every resource (merged with module defaults).
+# Org compliance tags attached to every resource (merged with module
+# defaults). These three are REQUIRED and the values are fixed -- do not
+# edit them. Verify after apply with: ./scripts/check-tags.sh
  extra_tags = {
    ownerOrganizationId = "gws"
-   project   = "pse"
-   ownerOUId = "demo"
+   project   = "demo"
+   ownerOUId = "pse"
  }
 
