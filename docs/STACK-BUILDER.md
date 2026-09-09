@@ -802,9 +802,9 @@ This repo is licensed under the Apache License 2.0 (see [NOTICE](../NOTICE) for 
 
 ## Appendix: `scripts/` reference
 
-Every operational script lives under `scripts/` and runs **on the EC2 host** (as `ec2-user`). Many are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
+Most scripts below live under `scripts/` *and* run **on the EC2 host** (as `ec2-user`) — but those are two separate facts, not one: a few exceptions, called out under **Laptop-side & repo hygiene scripts**, break that pairing instead of just relocating out of it. Many of the EC2-side ones are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
 
-> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `laptop-kit/terraform-aws/scripts/`, not under `scripts/` above. `manage-stacks.sh` and `stack-scp.sh` are covered under **Provisioning and bootstrap**; `pull-config.sh` and `push-config.sh` under **The pull/push-config cycle**; `check-prereqs.sh` is a self-contained macOS preflight check.
+> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `laptop-kit/terraform-aws/scripts/`, not under `scripts/` above, and aren't covered in this appendix at all; they're documented elsewhere. `manage-stacks.sh` and `stack-scp.sh` are covered under **Provisioning and bootstrap**; `pull-config.sh` and `push-config.sh` under **The pull/push-config cycle**; `check-prereqs.sh` is a self-contained macOS preflight check. This appendix's own exceptions are a different case: `aws-manage-inbound-ip.sh` shares this same `laptop-kit/terraform-aws/scripts/` location, but `aws-retag-account.sh` and `check-script-drift.sh` live right here under `scripts/` while still running on your laptop, not the EC2 host — `aws-retag-account.sh` in particular is worth remembering as the odd one out.
 
 ### Summary table
 
