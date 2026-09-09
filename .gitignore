@@ -86,3 +86,9 @@ crash.log
 
 # n8n pg_dumpall output, whatever it gets named.
 **/*n8n*dump*.sql
+
+# --- Azure path: under development, not part of 3.0.0 ---
+#     172cc37 deferred Azure to 3.1 and removed the module from the release.
+#     The tree stays on disk under laptop-kit/ so work can continue, but nothing
+#     in it is tracked until the path is ready to ship.
+/laptop-kit/terraform-azure/
