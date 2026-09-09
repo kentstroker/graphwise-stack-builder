@@ -9,7 +9,7 @@ It is a **demo / evaluation** environment — not production-ready (default pass
 | Path | What it is |
 |---|---|
 | `charts/` | The umbrella Helm chart — PoolParty, GraphDB ×2, add-ons, console, Keycloak — plus the vendored GraphRAG charts |
-| `infra/terraform-example/` | The end-user kit: a self-contained Terraform module that provisions the EC2 host and brings the cluster up |
+| `infra/terraform-aws/` | The end-user kit: a self-contained Terraform module that provisions the EC2 host and brings the cluster up |
 | `scripts/` | EC2-side lifecycle scripts (bootstrap, deploy, validate, stop/start, …) |
 | `STACK-BUILDER.md` | **The complete operator guide** |
 | `TERRAFORM_NOTES.md` | Terraform module reference |

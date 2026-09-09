@@ -1,7 +1,7 @@
 # Graphwise Stack — Azure module
 
 Provisions the Graphwise Stack on a **single Azure Linux VM** running KIND,
-as an alternative to the AWS/EC2 path in [`../terraform-example/`](../terraform-example/).
+as an alternative to the AWS/EC2 path in [`../terraform-aws/`](../terraform-aws/).
 
 > **Status: unvalidated.** Every file here has been formatted, `terraform
 > validate`d, and the cloud-init template has been rendered and shell-syntax

@@ -380,7 +380,7 @@ After that, `ssh<name>` drops you in as `ec2-user`. For scp:
 ./scripts/stack-scp.sh -r ./data :~/staging-data/    # push recursively
 ```
 
-**Fixing lockout after your IP changes.** Each stack's security group restricts SSH/HTTP/HTTPS to your `admin_cidr` `/32`, and Terraform stops managing those rules after the first apply. When your home IP changes, run `infra/terraform-example/scripts/aws-manage-inbound-ip.sh` — it inventories every stack SG's inbound rules, then lets you `replace` the old `/32` with your new one (or `add` a `/32` on 22/80/443, `add-https` a `/32` on 443 only, or `remove` a `/32`) across selected stacks. It is dry-run by default; re-run with `--apply`. Remember to also update `admin_cidr` in that stack's `terraform.tfvars` so a future destroy/apply doesn't reintroduce the old IP.
+**Fixing lockout after your IP changes.** Each stack's security group restricts SSH/HTTP/HTTPS to your `admin_cidr` `/32`, and Terraform stops managing those rules after the first apply. When your home IP changes, run `infra/terraform-aws/scripts/aws-manage-inbound-ip.sh` — it inventories every stack SG's inbound rules, then lets you `replace` the old `/32` with your new one (or `add` a `/32` on 22/80/443, `add-https` a `/32` on 443 only, or `remove` a `/32`) across selected stacks. It is dry-run by default; re-run with `--apply`. Remember to also update `admin_cidr` in that stack's `terraform.tfvars` so a future destroy/apply doesn't reintroduce the old IP.
 
 Pass `--new auto` (or just press Enter at the prompt) to use this laptop's
 detected public IP instead of typing it — the lookup is IPv4-only and rejects a
@@ -802,7 +802,7 @@ This repo is licensed under the Apache License 2.0 (see [NOTICE](NOTICE) for wha
 
 Every operational script lives under `scripts/` and runs **on the EC2 host** (as `ec2-user`). Many are chained automatically — `deploy-stack.sh` runs the full build sequence end-to-end, and the `graphwise-cluster-resume.service` systemd unit runs `cluster-resume.sh` on every boot — so the ones marked *(auto)* / *(boot)* are rarely invoked by hand.
 
-> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `infra/terraform-example/scripts/`, not under `scripts/` above. `manage-stacks.sh` and `stack-scp.sh` are covered under **Provisioning and bootstrap**; `pull-config.sh` and `push-config.sh` under **The pull/push-config cycle**; `check-prereqs.sh` is a self-contained macOS preflight check.
+> The laptop-side kit helpers — `check-prereqs.sh`, `pull-config.sh`, `push-config.sh`, `manage-stacks.sh`, `stack-scp.sh` — live under `infra/terraform-aws/scripts/`, not under `scripts/` above. `manage-stacks.sh` and `stack-scp.sh` are covered under **Provisioning and bootstrap**; `pull-config.sh` and `push-config.sh` under **The pull/push-config cycle**; `check-prereqs.sh` is a self-contained macOS preflight check.
 
 ### Summary table
 

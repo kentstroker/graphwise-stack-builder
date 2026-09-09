@@ -7,7 +7,7 @@
 # graphwise.sh exporting GRAPHWISE_APEX / ROUTE53_ZONE_ID / LE_EMAIL plus
 # the static Route 53 IAM key pair. Operators run scripts/deploy-stack.sh next.
 #
-# This is the Azure twin of infra/terraform-example/user-data.sh.tpl. The
+# This is the Azure twin of infra/terraform-aws/user-data.sh.tpl. The
 # contract with the rest of the repo is IDENTICAL and must stay that way:
 #   - log at /var/log/bootstrap.log, mode 644
 #   - last line contains "Bootstrap complete"  <-- scripts/deploy-stack.sh

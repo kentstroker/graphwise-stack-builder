@@ -11,7 +11,7 @@
 #          --yes     skip the type-the-subscription-id confirmation
 #          --subscription <id>   target a specific subscription
 #
-# This is the Azure twin of infra/terraform-example/scripts/
+# This is the Azure twin of infra/terraform-aws/scripts/
 # aws-manage-inbound-ip.sh. Same contract, same safety posture:
 #
 #   - Discovery is by TAG (ManagedBy=terraform + Cloud=azure), not by name

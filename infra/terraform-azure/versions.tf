@@ -1,6 +1,6 @@
 # Terraform + provider version pins for the Graphwise Stack AZURE module.
 #
-# Mirrors infra/terraform-example/versions.tf (the AWS module). Keep the
+# Mirrors infra/terraform-aws/versions.tf (the AWS module). Keep the
 # ranges conservative and bump them deliberately -- the `azurerm` provider
 # had a breaking v3 -> v4 major (subscription_id became mandatory, several
 # resources changed default behaviour), so an unplanned upgrade can break

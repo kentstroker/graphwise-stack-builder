@@ -7,7 +7,7 @@
 # kind + kubectl + helm, clones the stack repo, and brings up a
 # single-node KIND Kubernetes cluster.
 #
-# This is the Azure twin of infra/terraform-example/main.tf. It is a
+# This is the Azure twin of infra/terraform-aws/main.tf. It is a
 # SEPARATE, self-contained module -- nothing here is shared with the AWS
 # module, and changing one never affects the other. From the KIND layer
 # upward (all 13 Helm charts, both release orderings, every day-2 script)
