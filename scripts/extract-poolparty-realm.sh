@@ -202,9 +202,11 @@ jq --arg ppt "$PPT_SECRET" --arg ppgs "$PPGS_SECRET" --arg extractor "$EXTRACTOR
     | (.clients[]? | select(.clientId == "recommender") | .secret) = $recommender
     | (.users[]? | select(.username == "superadmin") | .credentials[0].value) = $superadmin_pw
     | (.users[]? | select(.username == "superadmin") | .credentials[0].temporary) = false
+    | (.users[]? | select(.username == "superadmin") | .requiredActions) = []
 ' "$DEST" > "$TMP" && mv "$TMP" "$DEST"
 echo "  ppt/ppgs/extractor/recommender .secret -> ohIP...eFb5[/2/3/4]  (match PoolParty image)"
 echo "  superadmin pw                          -> poolparty   (temporary=false)"
+echo "  superadmin requiredActions             -> []          (no forced password change)"
 
 # Belt-and-braces global sweep for any OTHER occurrence of the same
 # placeholders. The targeted jq above hits the load-bearing paths
@@ -227,8 +229,18 @@ sed -i "s|\${POOLPARTY_SUPER_ADMIN_PASSWORD}|$SUPERADMIN_PASSWORD|g" "$DEST"
 # poolparty-realm.yaml, so it is EXPECTED to remain here -- exclude it from
 # the leftover check. Anything else surviving is a real gap.
 remaining=$(grep -oE '\$\{[A-Z_]+\}' "$DEST" | grep -vF '${GRAPHDB_PUBLIC_URL}' | sort -u || true)
+# Ontotext also uses a SECOND placeholder syntax -- bare __UPPER_SNAKE__ tokens,
+# with no ${} around them. poolparty-keycloak:2.6.1 introduced the first one
+# (__SUPERADMIN_REQUIRES_ACTIONS__, replacing 2.5.0's literal "UPDATE_PASSWORD"
+# in the superadmin's requiredActions). The ${...} grep above cannot see that
+# shape, so an unsubstituted token would import silently as a bogus required
+# action. Check for it explicitly; the jq pass above clears the one we know of.
+remaining_bare=$(grep -oE '__[A-Z_]+__' "$DEST" | sort -u || true)
+if [[ -n "$remaining_bare" ]]; then
+    remaining="${remaining}${remaining:+$'\n'}${remaining_bare}"
+fi
 if [[ -n "$remaining" ]]; then
-    echo "  WARNING: leftover \${...} placeholders the script doesn't know how to substitute:"
+    echo "  WARNING: leftover placeholders the script doesn't know how to substitute:"
     echo "$remaining" | sed 's/^/    /'
     echo "  Update extract-poolparty-realm.sh with values for these before running reset-helm.sh."
 fi
