@@ -329,7 +329,7 @@ persistence:
 
 # Configurations for an emptyDir volume for the /tmp folder in each GraphRAG Conversation container.
 # Because the default security context in .Values.securityContext configures the root filesystem to be in read-only mode, certain features
-# cannot create and write files.master in /tmp. If you don't use a read-only root filesystem, you can disable this with .Values.tempVolume.enabled
+# cannot create and write files in /tmp. If you don't use a read-only root filesystem, you can disable this with .Values.tempVolume.enabled
 tempVolume:
   # Toggles the temp folder emptyDir volume creation.
   # - If enabled, the StatefulSet will use an emptyDir volume for /tmp.

@@ -48,7 +48,7 @@
 
 set -euo pipefail
 
-# Colors (disabled when stdout is not a TTY -- pipes/files.master stay clean).
+# Colors (disabled when stdout is not a TTY -- pipes/files stay clean).
 # Used by the destructive-confirmation prompt block below.
 if [ -t 1 ]; then
     BOLD=$'\033[1m'; YELLOW=$'\033[33m'; RESET=$'\033[0m'
@@ -321,7 +321,7 @@ PY
 
     # Pause only if graphrag is in scope AND something is missing --
     # umbrella-only deploys don't need Bedrock/n8n license, and clean
-    # files.master don't need to be warned about.
+    # files don't need to be warned about.
     if [[ $SKIP_GRAPHRAG -ne 1 && $missing_count -gt 0 ]]; then
         cat >&2 <<PREFLIGHT
 
@@ -541,7 +541,7 @@ helm dependency update "$UMBRELLA_CHART_DIR"
 #   1. ~/graphwise-secrets.yaml top-level `maven:` block (preferred --
 #      consolidates with Bedrock + n8n creds in one operator-managed
 #      file; written by Terraform cloud-init).
-#   2. ~/.ontotext/maven-user + maven-pass plain-text files.master (legacy --
+#   2. ~/.ontotext/maven-user + maven-pass plain-text files (legacy --
 #      kept for backward compat with operators who already have these).
 #
 # If neither source has values, WARN and continue. The umbrella
@@ -553,7 +553,7 @@ if [[ -f "$SECRETS_OVERLAY" ]]; then
     # Parse YAML via Python (always present on AL2023; PyYAML in stdlib
     # via system packages). Empty/missing values -> empty strings.
     # Canonical schema is top-level `maven:`. Fall back to the nested
-    # `graphrag-secrets.maven:` form for files.master that grew that mistake
+    # `graphrag-secrets.maven:` form for files that grew that mistake
     # via hand-edits -- still works, but the operator should flatten.
     yaml_creds=$(SECRETS_OVERLAY="$SECRETS_OVERLAY" python3 <<'PY' 2>/dev/null
 import os, sys, yaml
@@ -587,7 +587,7 @@ PY
         echo "      canonical location is top-level 'maven:' in ~/graphwise-secrets.yaml."
     fi
 fi
-# Fallback to legacy plain-text files.master if the YAML didn't have them.
+# Fallback to legacy plain-text files if the YAML didn't have them.
 if [[ -z "$MAVEN_USER" && -f "$HOME/.ontotext/maven-user" ]]; then
     MAVEN_USER=$(tr -d '[:space:]' < "$HOME/.ontotext/maven-user")
 fi

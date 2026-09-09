@@ -266,13 +266,13 @@ service:
 # Persistence Configurations #
 ##############################
 
-# Configurations for an emptyDir volume where the chatbot configuration files.master are stored.
+# Configurations for an emptyDir volume where the chatbot configuration files are stored.
 # This is used to allow the chatbot to be configured at runtime by NGINX, in a read-only file system.
 # To avoid this volume, you need to disable the strict security context, which is not recommended.
-# This volume enables an init container that will copy the existing configuration files.master from the image to the volume.
+# This volume enables an init container that will copy the existing configuration files from the image to the volume.
 chatbotConfigVolume:
   # Toggles the config folder emptyDir volume creation.
-  # - If enabled, the Deployment will use an emptyDir volume for /usr/share/nginx/html/config/ AND will copy the existing files.master from the image.
+  # - If enabled, the Deployment will use an emptyDir volume for /usr/share/nginx/html/config/ AND will copy the existing files from the image.
   # - If disabled, the chart won't create and mount ephemeral volumes for /usr/share/nginx/html/config/.
   enabled: true
   # Default location of the config directory inside the container where the empty volume will be mounted.
@@ -285,7 +285,7 @@ chatbotConfigVolume:
 
 # Configurations for an emptyDir volume for the Nginx cache folder in each GraphRAG Chatbot container.
 # Because the default security context in .Values.securityContext configures the root filesystem to be in read-only mode, certain features
-# cannot create and write files.master in /var/cache/nginx. If you don't use a read-only root filesystem, you can disable this with .Values.nginxCacheTempVolume.enabled
+# cannot create and write files in /var/cache/nginx. If you don't use a read-only root filesystem, you can disable this with .Values.nginxCacheTempVolume.enabled
 nginxCacheTempVolume:
   # Toggles the temp folder emptyDir volume creation.
   # - If enabled, the Deployment will use an emptyDir volume for /var/cache/nginx.
@@ -301,7 +301,7 @@ nginxCacheTempVolume:
 
 # Configurations for an emptyDir volume for the /run folder in each GraphRAG Chatbot container.
 # Because the default security context in .Values.securityContext configures the root filesystem to be in read-only mode, certain features
-# cannot create and write files.master in /run. If you don't use a read-only root filesystem, you can disable this with .Values.runTempVolume.enabled
+# cannot create and write files in /run. If you don't use a read-only root filesystem, you can disable this with .Values.runTempVolume.enabled
 runTempVolume:
   # Toggles the temp folder emptyDir volume creation.
   # - If enabled, the Deployment will use an emptyDir volume for /run.

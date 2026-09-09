@@ -622,7 +622,7 @@ helm upgrade --install metrics-server metrics-server/metrics-server \
 # pods at install time -- not by anything cluster-bootstrap.sh
 # installs. Moved to scripts/reset-helm.sh where it actually matters,
 # so this script no longer warns about missing ~/.ontotext/maven-*
-# files.master when you're just running cluster-bootstrap to test
+# files when you're just running cluster-bootstrap to test
 # observability.
 
 # ---------------------------------------------------------------------------

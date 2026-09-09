@@ -50,7 +50,7 @@ spec:
       #
       # This initContainer runs the SAME image, copies its
       # /unified-views/ tree into the PVC (`cp -an` = no-clobber, so
-      # subsequent restarts and image upgrades only ADD new files.master
+      # subsequent restarts and image upgrades only ADD new files
       # without trampling runtime data the app may have written).
       # By the time the main container starts, the PVC carries the
       # image's binaries plus room for whatever state the app

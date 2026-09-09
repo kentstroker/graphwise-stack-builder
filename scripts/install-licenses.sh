@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # install-licenses.sh — kubectl-creates the three license Secrets that
-# the chart Deployments mount as files.master.
+# the chart Deployments mount as files.
 #
 # Run after scripts/cluster-bootstrap.sh and BEFORE installing the
-# graphwise-stack umbrella chart. License files.master are vendor blobs that
+# graphwise-stack umbrella chart. License files are vendor blobs that
 # never enter git — copy them from your laptop to the EC2 with scp,
 # then run this.
 #
-# Required files.master:
-#   files.master/licenses/poolparty.key      → Secret poolparty-license
-#   files.master/licenses/graphdb.license    → Secret graphdb-license
-#   files.master/licenses/uv-license.key     → Secret unifiedviews-license
+# Required files:
+#   files/licenses/poolparty.key      → Secret poolparty-license
+#   files/licenses/graphdb.license    → Secret graphdb-license
+#   files/licenses/uv-license.key     → Secret unifiedviews-license
 #
 # Idempotent: re-runs replace the Secrets in place. Charts pick up new
 # license content on the next pod restart.
@@ -25,7 +25,7 @@ NAMESPACE="${NAMESPACE:-graphwise}"
 
 echo "Installing license Secrets into namespace: $NAMESPACE"
 
-# Verify all three files.master exist before we touch anything. Fail fast if a
+# Verify all three files exist before we touch anything. Fail fast if a
 # file is missing — better than partial install.
 missing=0
 for f in poolparty.key graphdb.license uv-license.key; do

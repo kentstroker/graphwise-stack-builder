@@ -16,14 +16,14 @@
 #
 # Why one tarball: each scp is a fresh SSH connection (handshake
 # latency, partial-failure mode per file). One tarball + one SSH means
-# atomic-or-nothing: either all files.master arrive or none do.
+# atomic-or-nothing: either all files arrive or none do.
 #
 # What's pushed (snapshot path -> EC2 destination):
 #
 #   1. <snap>/graphwise-secrets.yaml  -> EC2:~/graphwise-secrets.yaml
 #      Single-file secrets: maven, Bedrock, n8n license, n8n encryption.
 #
-#   2. <snap>/licenses/poolparty.key     -> EC2:~/gsb/files.master/licenses/
+#   2. <snap>/licenses/poolparty.key     -> EC2:~/gsb/files/licenses/
 #      <snap>/licenses/graphdb.license
 #      <snap>/licenses/uv-license.key
 #
@@ -32,7 +32,7 @@
 #      it (cert-manager sees a valid Secret in place and skips LE
 #      issuance -- saves a per-week LE rate-limit slot).
 #
-# Missing files.master are warned + skipped, not fatal.
+# Missing files are warned + skipped, not fatal.
 #
 # n8nEncryption.key handling: by default we read the FRESH key from
 # the EC2's pre-existing ~/graphwise-secrets.yaml (cloud-init wrote it)
@@ -218,7 +218,7 @@ DEPS
 fi
 
 # ---------------------------------------------------------------------
-# Stage files.master locally into a temp dir; the tar gets built from there.
+# Stage files locally into a temp dir; the tar gets built from there.
 # ---------------------------------------------------------------------
 STAGE=$(mktemp -d -t graphwise-push.XXXXXX)
 trap 'rm -rf "$STAGE"' EXIT
@@ -357,7 +357,7 @@ PY
     printf '  %s✓%s staged graphwise-secrets.yaml\n' "$GREEN" "$RESET"
 fi
 
-# Phase 2: license files.master
+# Phase 2: license files
 if [ "$SKIP_LICENSES" != "yes" ]; then
     if [ ! -d "$LICENSES_DIR" ]; then
         printf '  %s⚠%s licenses dir missing (%s) -- skipping\n' "$YELLOW" "$RESET" "$LICENSES_DIR"
@@ -417,7 +417,7 @@ fi
 echo
 echo "${BOLD}Pushing tarball ($staged file(s)) to $USR@$HOST in one ssh...${RESET}"
 
-# Remote snippet: untar payload, move files.master to canonical paths,
+# Remote snippet: untar payload, move files to canonical paths,
 # chmod tightly, emit per-file 'PLACED:<path>' lines on stderr so
 # we can replay them locally.
 REMOTE_EXTRACT='
@@ -425,8 +425,8 @@ set -euo pipefail
 RDIR=$(mktemp -d /tmp/graphwise-push.XXXXXX)
 trap "rm -rf \"$RDIR\"" EXIT
 tar -xzf - -C "$RDIR"
-mkdir -p "$HOME/gsb/files.master/licenses"
-chmod 700 "$HOME/gsb/files.master/licenses"
+mkdir -p "$HOME/gsb/files/licenses"
+chmod 700 "$HOME/gsb/files/licenses"
 if [ -f "$RDIR/graphwise-secrets.yaml" ]; then
     install -m 0600 "$RDIR/graphwise-secrets.yaml" "$HOME/graphwise-secrets.yaml"
     echo "PLACED:~/graphwise-secrets.yaml" >&2
@@ -435,8 +435,8 @@ if [ -d "$RDIR/licenses" ]; then
     for f in "$RDIR"/licenses/*; do
         [ -f "$f" ] || continue
         name=$(basename "$f")
-        install -m 0600 "$f" "$HOME/gsb/files.master/licenses/$name"
-        echo "PLACED:~/gsb/files.master/licenses/$name" >&2
+        install -m 0600 "$f" "$HOME/gsb/files/licenses/$name"
+        echo "PLACED:~/gsb/files/licenses/$name" >&2
     done
 fi
 if [ -f "$RDIR/wildcard-tls.yaml" ]; then

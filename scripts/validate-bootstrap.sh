@@ -15,7 +15,7 @@
 
 set -uo pipefail
 
-# Colors (disabled when stdout is not a TTY -- pipes / files.master stay clean).
+# Colors (disabled when stdout is not a TTY -- pipes / files stay clean).
 if [ -t 1 ]; then
     GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; CYAN=$'\033[36m'
     BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'

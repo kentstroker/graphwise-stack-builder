@@ -1,6 +1,6 @@
 {{/*
 ADF — Deployment + PVC + Service + Ingress in one file. The chart is
-small enough that splitting these into separate template files.master just
+small enough that splitting these into separate template files just
 adds noise.
 */}}
 {{- if .Values.persistence.enabled }}

@@ -137,7 +137,7 @@ else
     echo "${GREEN}✓${RESET} ~/graphwise-secrets.yaml present"
 fi
 
-# (d) License files.master delivered.
+# (d) License files delivered.
 miss_lic=0
 for f in poolparty.key graphdb.license uv-license.key; do
     [ -f "$REPO_ROOT/files/licenses/$f" ] || { echo "${RED}✗${RESET} missing files/licenses/$f"; miss_lic=1; }

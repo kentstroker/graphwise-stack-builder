@@ -5,9 +5,9 @@ image:
   tag: "1.31.5"
   pullPolicy: IfNotPresent
 
-# Source files.master for the static page live under files.master/ inside this chart
-# (charts/console/files.master/*.html). They were originally in the repo's
-# top-level files.master/console/ for the compose stack; the chart now owns
+# Source files for the static page live under files/ inside this chart
+# (charts/console/files/*.html). They were originally in the repo's
+# top-level files/console/ for the compose stack; the chart now owns
 # them. The umbrella chart pre-render step keeps both copies in sync
 # until the compose path is fully retired.
 

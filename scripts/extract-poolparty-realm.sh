@@ -4,7 +4,7 @@
 # keycloak-realms Helm chart expects it.
 #
 # The JSON contains client secrets and password hashes, so it's
-# gitignored under charts/keycloak-realms/files.master/. Re-run this if you
+# gitignored under charts/keycloak-realms/files/. Re-run this if you
 # bump the poolparty-keycloak image version.
 
 set -euo pipefail

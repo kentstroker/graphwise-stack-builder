@@ -5,7 +5,7 @@
 #   1. graphwise-stack    (in graphwise namespace)  -- umbrella overlay
 #   2. graphrag           (in graphrag  namespace)  -- chatbot/etc overlay
 #
-# We emit two separate files.master because the GraphRAG charts are now a
+# We emit two separate files because the GraphRAG charts are now a
 # separate Helm release (see STACK-BUILDER.md "Helm releases overview" -- the
 # vendored chart's resources default to the release namespace, and
 # GraphRAG pods need to live in `graphrag` to mount the supporting

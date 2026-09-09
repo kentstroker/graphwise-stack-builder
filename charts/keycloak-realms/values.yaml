@@ -37,7 +37,7 @@ graphrag:
       lastName: Brown
       email: bob@example.com
 
-# poolparty realm — imported from files.master/poolparty-realm.json.
+# poolparty realm — imported from files/poolparty-realm.json.
 # Extract once with scripts/extract-poolparty-realm.sh.
 # If the file is absent, this realm is skipped (the chart still
 # installs successfully, but PoolParty will have no realm to bind to).

@@ -298,7 +298,7 @@ staging:
   # volumeName. Without that pin, PVCs would stay Pending while K8s
   # tried (and failed) to dynamically provision.
   storageClassName: hostpath-staging
-  # Retain on PVC delete -- the underlying files.master on the EC2 host
+  # Retain on PVC delete -- the underlying files on the EC2 host
   # outlive any helm uninstall / reset-helm cycle.
   reclaimPolicy: Retain
 
@@ -351,8 +351,8 @@ graphdb-projects:
   ingress:
     host: ""
   # Mount the shared staging-data PVC (created by staging-data.yaml for the
-  # graphdb namespace) at the GraphDB server-import path so files.master uploaded
-  # to ~/staging-data on the EC2 appear in the Workbench "Server files.master" tab.
+  # graphdb namespace) at the GraphDB server-import path so files uploaded
+  # to ~/staging-data on the EC2 appear in the Workbench "Server files" tab.
   extraVolumes:
     - name: staging-import
       persistentVolumeClaim:

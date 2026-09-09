@@ -79,7 +79,7 @@
 #
 # Why a dated Downloads folder (vs overwriting canonical paths in $HOME):
 # this is your ARCHIVE of the deployment's state at a given moment.
-# Each pull stands alone -- no .bak-<timestamp> files.master cluttering $HOME,
+# Each pull stands alone -- no .bak-<timestamp> files cluttering $HOME,
 # no risk of clobbering edits you made since the last pull. To use the
 # pulled snapshot for the next deploy, point push-config.sh at the
 # folder via --licenses-dir + --secrets-file (the script prints the
@@ -190,7 +190,7 @@ echo "${BOLD}Snapshot folder:${RESET} $SNAPSHOT_DIR"
 echo
 
 # ---------------------------------------------------------------------
-# Build the remote snippet: stage selected files.master into a temp dir + emit
+# Build the remote snippet: stage selected files into a temp dir + emit
 # tar.gz on stdout. PRESENT/MISSING inventory on stderr.
 #
 # Phase 1 BUILDS graphwise-secrets.yaml from live KIND Secrets (the
@@ -507,7 +507,7 @@ echo
 echo "${BOLD}Extracting into $SNAPSHOT_DIR ...${RESET}"
 tar -xzf "$TARBALL" -C "$SNAPSHOT_DIR"
 
-# Tighten perms on extracted files.master (tar may preserve world-readable bits
+# Tighten perms on extracted files (tar may preserve world-readable bits
 # if the source was loose).
 find "$SNAPSHOT_DIR" -type f -exec chmod 600 {} +
 find "$SNAPSHOT_DIR" -type d -exec chmod 700 {} +

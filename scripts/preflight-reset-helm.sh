@@ -222,7 +222,7 @@ else
 fi
 
 # --------------------------------------------------------------------
-# 5. License files.master on disk
+# 5. License files on disk
 # --------------------------------------------------------------------
 section "License files (files/licenses/)"
 LIC_DIR="$REPO_ROOT/files/licenses"
