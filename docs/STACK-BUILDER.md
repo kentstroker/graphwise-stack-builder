@@ -92,7 +92,7 @@ runs put the entire Graphwise suite in the cluster:
 - **GraphDB EE** (two instances: `embedded` for PoolParty, `projects` for federation demos)
 - **Elasticsearch** (PoolParty's semantic search backend)
 - **Keycloak** — SSO for PoolParty, ADF, Semantic Workbench, GraphRAG conversation
-- **Addons** — ADF, Semantic Workbench, GraphViews, RDF4J, UnifiedViews, Ontotext Refine
+- **Addons** — ADF, Semantic Workbench, GraphViews, RDF4J, UnifiedViews, Ontotext Refine (off by default; amd64 deploys only)
 - **GraphRAG** — chatbot, conversation API, components, n8n workflow engine
 - **Console** — apex landing page with links to every app and a Full/Demo mode toggle; the top panel is organized as three cumulative product bundles (Data Management Suite → Knowledge Management Suite → Graph AI Suite)
 - **Observability** — Kubernetes Dashboard, Prometheus, Grafana, AlertManager
@@ -168,7 +168,7 @@ context-path-prefix surgery. DNS requires exactly two records:
 | GraphViews | `graphviews.<sub>.<base>` |
 | RDF4J | `rdf4j.<sub>.<base>` |
 | UnifiedViews | `unifiedviews.<sub>.<base>` |
-| Ontotext Refine | `refine.<sub>.<base>` (CIDR-allowlisted) |
+| Ontotext Refine (off by default; amd64 deploys only) | `refine.<sub>.<base>` (CIDR-allowlisted) |
 | GraphRAG chatbot / conversation / n8n | `graphrag.<sub>.<base>` |
 | Kubernetes Dashboard | `dashboard.<sub>.<base>` |
 | Prometheus | `prometheus.<sub>.<base>` |
@@ -598,7 +598,7 @@ Replace `<sub>.<base>` with your deployment's apex hostname (e.g. `demo.example.
 | GraphDB embedded | `https://graphdb.<sub>.<base>/` | `demo` | `rdf#rocks` |
 | GraphDB projects | `https://graphdb-projects.<sub>.<base>/` | `demo` | `rdf#rocks` |
 | RDF4J Workbench | `https://rdf4j.<sub>.<base>/rdf4j-workbench/` | `demo` | `rdf#rocks` |
-| Ontotext Refine | `https://refine.<sub>.<base>/` | CIDR-allowlisted (no login) | — |
+| Ontotext Refine (off by default; amd64 deploys only) | `https://refine.<sub>.<base>/` | CIDR-allowlisted (no login) | — |
 | GraphRAG chatbot | `https://graphrag.<sub>.<base>/` | `alice` or `bob` | `alice123` / `bob123` |
 | GraphRAG Conversation API | `https://graphrag.<sub>.<base>/conversations/` | OIDC bearer token | — |
 | GraphRAG Workflows (n8n) | `https://graphrag.<sub>.<base>/graphrag/workflows/` | set on first visit | — |
@@ -826,6 +826,7 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | `cluster-stop.sh` | EC2 | Scale app workloads to 0 (recording replica counts) before stopping the EC2 |
 | `cluster-start.sh` | EC2 *(auto)* | Restore workloads to their pre-stop replica counts |
 | `cluster-resume.sh` | EC2 *(boot)* | Restart KIND node containers after a reboot, then start workloads |
+| `poolparty-extractor-guard.sh` | EC2 *(boot)* | Rebuild PoolParty's extraction index if it didn't survive an EC2 stop/start |
 | **Workflow database seed** | | |
 | `create-workflows-dumpall.sh` | EC2 | Snapshot the live workflow DB to `$HOME/workflows-pg-dumpall-<date>.sql` |
 | `restore-workflows-dumpall.sh` | EC2 | Load the newest-by-mtime `$HOME/workflows*.sql` (freeform-named seed) into n8n Postgres |
@@ -833,6 +834,10 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 | **Branding, images & utilities** | | |
 | `set-logo.sh` | EC2 | Base64-encode a customer logo into a gitignored console-branding overlay |
 | `check-image-versions.sh` | EC2 | Check image tags vs Docker Hub, upgrade charts, and (`--apply`) roll the live stack in place |
+| **Laptop-side & repo hygiene** | | |
+| `aws-manage-inbound-ip.sh` | Laptop | Inventory and edit the admin `/32` (and public-HTTPS) ingress rules on every stack's security group |
+| `aws-retag-account.sh` | Laptop | Sweep the AWS account, applying the org compliance tags (companion to `check-tags.sh`, which audits only) |
+| `check-script-drift.sh` | Laptop | Compare scripts duplicated across `infra/*/scripts/` trees for drift — dormant at 3.0.0 |
 
 ### Provisioning & deploy
 
@@ -878,6 +883,9 @@ The symmetric partner to `cluster-stop.sh`: reads the `replicas-before-stop` ann
 #### `cluster-resume.sh`
 After an EC2 stop/start the KIND node containers stay `Exited` (no restart policy), so kubectl fails with "connection refused". This restarts them, sets `restart=unless-stopped` so future reboots are a non-event, waits for the kube API to answer, then calls `cluster-start.sh` to scale workloads back up. Run automatically on every boot by the `graphwise-cluster-resume.service` systemd unit, so the stack survives a reboot hands-off. `--if-exists` makes it a no-op when no cluster is present.
 
+#### `poolparty-extractor-guard.sh`
+PoolParty's extraction index (the concept index the extractor matches against) does not survive an EC2 stop/start — every `/extractor/api/extract` call then fails with an empty-index error, which silently kills the GraphRAG Concept Enricher and Concept Expansion steps on every turn while the rest of the pipeline keeps working. This waits for PoolParty to answer, canary-probes the extractor, triggers an index rebuild if the probe fails or the index is empty, then polls until concepts come back. Reaches PoolParty via `kubectl port-forward`, so it works before ingress/DNS/TLS are up. Idempotent — a healthy index is a quick no-op. Called from `cluster-resume.sh` on every EC2 boot (non-fatal there); also safe to run manually any time, e.g. before a demo or benchmark run. Credentials default to a documented PoolParty superadmin login; override with the `PP_AUTH` env var if the stack's password was rotated.
+
 ### Workflow database seed
 
 #### `create-workflows-dumpall.sh`
@@ -896,3 +904,14 @@ Base64-encodes a customer logo PNG into a persistent, gitignored Helm overlay (`
 
 #### `check-image-versions.sh`
 The in-place stack updater. Reads the current image tag from every chart values file, fetches the latest published semver tag for each image from Docker Hub, prints a comparison table, and offers to upgrade each outdated image interactively — editing the chart values under `~/gsb/charts` and rebuilding the umbrella's bundled tarballs (`helm dependency update`). With **`--apply`** it then rolls the *running* stack to the new images **without a destroy**: for each accepted upgrade it `docker pull`s the new tag and `kind load`s it into the cluster, then does a non-destructive `helm upgrade` of the `graphwise-stack` (umbrella) release — every catalogued image lives there — reusing the deployment's existing values overlays, so PVCs (and data) are retained. Without `--apply` it only edits the charts (re-run with `--apply`, or commit the bump). Flags: `--yes` (accept all), `--apply` (roll the live stack), `--timeout <dur>` (helm upgrade timeout, default 15m). Runs on the EC2; needs `curl`+`jq` (plus `helm`/`docker`/`kind`/`kubectl` for `--apply`).
+
+### Laptop-side & repo hygiene scripts
+
+#### `aws-manage-inbound-ip.sh`
+Laptop-side fix for the lockout that follows a home-IP change: Terraform stops managing each stack's security-group ingress after the first apply (`ignore_changes = [ingress]`), so a stale admin `/32` has to be edited live, out-of-band. It always prints an inventory of every stack SG's inbound rules first, then runs one operation on interactively-selected stacks — `replace <old> <new>` swaps the admin `/32` on every rule carrying it, `add`/`add-https` grants a new `/32` on 22+80+443 or on 443 only, `remove` revokes a `/32`, and the dedicated `open-public`/`close-public` pair is the only way to expose 443 to the world (`0.0.0.0/0` + `::/0`) — port 22 can never be world-opened, and every run audits all discovered SGs for one and fails loudly if it finds it. `audit` inventories and reports exposure without changing anything. Dry-run by default; pass `--apply` to actually write. Afterward, also update `admin_cidr` in that stack's `terraform.tfvars` so a later `destroy`/`apply` doesn't reintroduce the old IP.
+
+#### `aws-retag-account.sh`
+Runs on your laptop against your local AWS credentials, despite sitting under top-level `scripts/` alongside the EC2-side scripts. It sweeps every taggable resource in the account, across all enabled regions, applying the three org compliance tags (`ownerOrganizationId`, `project`, `ownerOUid`) via the Resource Groups Tagging API plus a supplementary Route 53 pass (hosted zones aren't covered by that API). It (over)writes all three wherever any is missing or wrong — including historically swapped values — and strips stale case-variant keys so you don't end up with duplicates; anything already compliant is skipped, so re-runs and the dry-run report show only genuine deltas. IAM is out of scope for v1 and is logged as skipped, never silently dropped. Dry-run by default; pass `--apply` to actually write. Companion to `check-tags.sh` (`laptop-kit/terraform-aws/scripts/`), which audits without changing anything.
+
+#### `check-script-drift.sh`
+Repo-hygiene check, run from a repo checkout. `infra/<cloud>/` trees are deliberately self-contained, so the cloud-agnostic laptop scripts (`manage-stacks.sh`, `stack-scp.sh`, `pull-config.sh`, `push-config.sh`) get duplicated into each cloud's `scripts/` directory instead of shared from one place — and nothing enforces that the copies stay identical. It flags two things, keyed off what's actually on disk: a **DRIFT** (a filename appearing in more than one `infra/*/scripts/` tree with different contents — always fails) and a **MISSING** (a name expected in every tree but absent from one — warns only, unless `--strict`). **Dormant at 3.0.0**: the Terraform module now lives at `laptop-kit/terraform-aws/`, so there are no `infra/*/scripts/` trees left to compare and the check finds nothing; it becomes meaningful again if a second cloud tree lands. Flags: `--diff`, `--list`, `--strict`.
