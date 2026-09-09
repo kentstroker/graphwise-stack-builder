@@ -131,7 +131,7 @@ fi
 
 # (c) Operator secrets: filled in on the instance, or restored by push-config.sh.
 if [ ! -f "$HOME/graphwise-secrets.yaml" ]; then
-    echo "${RED}✗${RESET} ~/graphwise-secrets.yaml missing -- cloud-init normally creates it; fill it in, or restore a snapshot with infra/terraform-aws/scripts/push-config.sh (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2
+    echo "${RED}✗${RESET} ~/graphwise-secrets.yaml missing -- cloud-init normally creates it; fill it in, or restore a snapshot with laptop-kit/terraform-aws/scripts/push-config.sh (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2
     fail=1
 else
     echo "${GREEN}✓${RESET} ~/graphwise-secrets.yaml present"
@@ -143,7 +143,7 @@ for f in poolparty.key graphdb.license uv-license.key; do
     [ -f "$REPO_ROOT/files/licenses/$f" ] || { echo "${RED}✗${RESET} missing files/licenses/$f"; miss_lic=1; }
 done
 if [ "$miss_lic" = "0" ]; then echo "${GREEN}✓${RESET} license files present"; else
-    echo "    Push them with infra/terraform-aws/scripts/push-config.sh, or scp them to ~/gsb/files/licenses/ (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2; fail=1
+    echo "    Push them with laptop-kit/terraform-aws/scripts/push-config.sh, or scp them to ~/gsb/files/licenses/ (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2; fail=1
 fi
 
 # (e) DNS soft check -- non-fatal (cert-manager retries), but warn loudly.

@@ -96,7 +96,7 @@ if [[ -n "${LE_EMAIL:-}" ]]; then
 ERROR: LE_EMAIL='$LE_EMAIL' uses a placeholder/reserved domain that
 Let's Encrypt rejects at ACME account registration ("forbidden domain").
 
-Set le_email in infra/terraform-aws/terraform.tfvars to a real address
+Set le_email in laptop-kit/terraform-aws/terraform.tfvars to a real address
 (e.g. your-handle@gmail.com) and either:
 
   a) terraform apply              # rewrites /etc/profile.d/graphwise.sh
@@ -340,7 +340,7 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 #     token can only edit DNS for this one zone.
 #
 #     Required: aws_instance.iam_instance_profile attached (handled by
-#     Terraform; see infra/terraform-aws/main.tf "IAM role + instance profile").
+#     Terraform; see laptop-kit/terraform-aws/main.tf "IAM role + instance profile").
 #     Required: http_put_response_hop_limit >= 2 in metadata_options so
 #     pods can reach IMDSv2 through the kube-proxy. Set in Terraform.
 #

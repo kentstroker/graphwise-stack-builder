@@ -11,7 +11,7 @@ deploy walkthrough see [STACK-BUILDER.md](STACK-BUILDER.md) § Prerequisites and
 
 ## What this module provisions
 
-`infra/terraform-aws/` is a self-contained Terraform module that creates five
+`laptop-kit/terraform-aws/` is a self-contained Terraform module that creates five
 AWS resources:
 
 | Resource | Details |
@@ -31,7 +31,7 @@ done by root/IAM-admin as a one-time human step).
 ## File map
 
 ```
-infra/terraform-aws/
+laptop-kit/terraform-aws/
 ├── versions.tf               Terraform + AWS provider version pins
 ├── variables.tf              All input variables with validation rules + defaults
 ├── main.tf                   SG, EC2, IAM role/profile, EIP logic
