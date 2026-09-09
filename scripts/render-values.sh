@@ -122,13 +122,14 @@ REFINE_HOST="refine.${APEX}"
 # ---------------------------------------------------------------------
 _REPO_ROOT_TF="$(cd "$(dirname "$0")/.." && pwd)"
 if [ -z "${TFVARS_PATH:-}" ]; then
-    # Use the first terraform.tfvars found under any infra/terraform-*/ tree.
-    # Globbed rather than listed by name: the previous hardcoded list
+    # Use the first terraform.tfvars found under any laptop-kit/terraform-*/
+    # tree. Globbed rather than listed by name: the previous hardcoded list
     # ("terraform-stroker", "terraform") matched no directory that ships in this
     # repo, so admin_cidr never resolved and the Refine ingress silently fell
     # back to 0.0.0.0/0 on every deploy. A glob keeps working across the
-    # terraform-example -> terraform-aws rename and any future cloud tree.
-    for _tfvars in "${_REPO_ROOT_TF}"/infra/terraform-*/terraform.tfvars; do
+    # terraform-example -> terraform-aws -> laptop-kit/terraform-aws rename
+    # lineage and any future cloud tree.
+    for _tfvars in "${_REPO_ROOT_TF}"/laptop-kit/terraform-*/terraform.tfvars; do
         if [ -f "$_tfvars" ]; then
             TFVARS_PATH="$_tfvars"
             break

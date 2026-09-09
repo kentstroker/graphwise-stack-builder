@@ -77,7 +77,7 @@ Published under the Apache License 2.0, AS-IS, no warranty, no support (see [NOT
 | Deploy a new stack on AWS | This file (§ Prerequisites, then § Provisioning and bootstrap) |
 | Understand what's running and why | This file (§ Architecture, § How a request gets routed) |
 | See all URLs and credentials | This file (§ App URLs and credentials) |
-| Understand the Terraform module and `user-data.sh.tpl` | [infra/TERRAFORM_NOTES.md](TERRAFORM_NOTES.md) |
+| Understand the Terraform module and `user-data.sh.tpl` | [TERRAFORM_NOTES.md](TERRAFORM_NOTES.md) |
 | Understand the chart internals and critical invariants | This file (§ Architecture, § Keycloak SSO and the OIDC issuer invariant) and the comments in `charts/graphwise-stack/values.yaml` |
 
 ---
@@ -364,7 +364,7 @@ terraform plan                    # MUST show "No changes"
 ```
 
 This prevents a future AWS-published AL2023 refresh from force-replacing your EC2.
-See [infra/TERRAFORM_NOTES.md → Safety](TERRAFORM_NOTES.md) for full rationale.
+See [TERRAFORM_NOTES.md → Safety](TERRAFORM_NOTES.md) for full rationale.
 
 **Set up SSH convenience entries (optional but recommended):**
 ```bash
@@ -543,7 +543,7 @@ terraform apply           # ~3 min; graphwise-cluster-resume.service auto-restor
 
 **Terraform safety rule:** never run unscoped `terraform apply` post-provision without
 reading `terraform plan` character by character. The AMI data source (`most_recent = true`)
-can trigger a force-replace. See [infra/TERRAFORM_NOTES.md → Safety](TERRAFORM_NOTES.md).
+can trigger a force-replace. See [TERRAFORM_NOTES.md → Safety](TERRAFORM_NOTES.md).
 
 ### Customer logo branding
 
