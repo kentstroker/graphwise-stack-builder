@@ -584,7 +584,7 @@ See [CLAUDE.md → Chart internals](CLAUDE.md) for the PV/PVC YAML and checklist
 
 ## App URLs and credentials
 
-Replace `<sub>.<base>` with your deployment's apex hostname (e.g. `kstroker.gw-pse.com`).
+Replace `<sub>.<base>` with your deployment's apex hostname (e.g. `demo.example.com`).
 
 > Default password pattern: **`rdf#rocks`** for most app logins, basic-auth, and
 > Postgres passwords. Exceptions are noted below.

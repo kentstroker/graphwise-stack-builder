@@ -3,7 +3,7 @@
 # supplied artifact + the live LE wildcard cert off the EC2 as a single
 # tarball; extracts into a fresh dated folder under the current directory.
 #
-# Run this from your per-stack Terraform folder (e.g. ~/Desktop/terraform-kstroker/).
+# Run this from your per-stack Terraform folder (e.g. ~/terraform-demo/).
 # The snapshot lands there, next to terraform.tfvars, so everything for one
 # stack stays in one place. Use --download-dir to override.
 #
@@ -160,7 +160,7 @@ if [ -z "$KEY" ] || [ -z "$HOST" ]; then
 ${RED}ERROR:${RESET} GRAPHWISE_KEY and GRAPHWISE_HOST must be set in the environment.
 Set them once (per SETUP §7):
     export GRAPHWISE_KEY=~/.ssh/graphwise-stack.pem
-    export GRAPHWISE_HOST=<subdomain>.<base-domain>   # e.g. bell.va-benefits.semantic-demo.com
+    export GRAPHWISE_HOST=<subdomain>.<base-domain>   # e.g. demo.example.com
     export GRAPHWISE_USER=ec2-user
 USAGE
     exit 2

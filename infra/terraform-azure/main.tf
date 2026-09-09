@@ -35,7 +35,7 @@
 
 locals {
   # Sanitized subdomain for Azure resource names: dots -> hyphens. Lets
-  # multi-level subdomains (e.g. "demo.stroker") become "demo-stroker",
+  # multi-level subdomains (e.g. "demo.team") become "demo-team",
   # which several Azure resource types require outright (dots are illegal
   # in NSG / NIC / disk names).
   subdomain_slug = replace(var.subdomain, ".", "-")

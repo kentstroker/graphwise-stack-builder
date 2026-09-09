@@ -22,7 +22,7 @@
 #                      Used for renewal-reminder mail; LE will reject
 #                      empty/malformed values.
 #   GRAPHWISE_APEX  -- the apex hostname for the deployment, e.g.
-#                      "stroker.semantic-proof.com". Cloud-init writes
+#                      "demo.example.com". Cloud-init writes
 #                      this to /etc/profile.d/graphwise.sh so login
 #                      shells inherit it; only set manually if invoking
 #                      from a non-login context. Used to build the
@@ -125,7 +125,7 @@ LE_EMAIL        Email address for the Let's Encrypt ACME account
                 (renewal-reminder mail). LE rejects empty / malformed
                 values.
 GRAPHWISE_APEX  Apex hostname for this deployment -- e.g.
-                stroker.semantic-proof.com. Used to build the
+                demo.example.com. Used to build the
                 observability Ingress hostnames (dashboard.<apex>,
                 prometheus.<apex>, grafana.<apex>) and the wildcard
                 Certificate's SANs.
@@ -141,13 +141,13 @@ Fix options (pick one):
   2) Export them inline for a one-shot invocation:
 
        LE_EMAIL=you@example.com \\
-       GRAPHWISE_APEX=stroker.semantic-proof.com \\
+       GRAPHWISE_APEX=demo.example.com \\
        ./scripts/cluster-bootstrap.sh
 
   3) Export them in your current shell (persists for this session):
 
        export LE_EMAIL=you@example.com
-       export GRAPHWISE_APEX=stroker.semantic-proof.com
+       export GRAPHWISE_APEX=demo.example.com
        ./scripts/cluster-bootstrap.sh
 
 If /etc/profile.d/graphwise.sh is missing or empty, cloud-init didn't

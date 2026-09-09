@@ -11,19 +11,18 @@ variable "region" {
 }
 
 variable "subdomain" {
-  description = "Your subdomain path under base_domain. Single-level (\"scott\") or multi-level (\"demo.stroker\") both work. All app hostnames live one level deeper: poolparty.<subdomain>.<base_domain>, auth.<subdomain>.<base_domain>, graphrag.<subdomain>.<base_domain>, etc. Multi-level lets one teammate run multiple deployments under their own slot (e.g. \"demo.stroker\" + \"prod.stroker\") without colliding. The teammate adds two A records in Route 53 (<subdomain> + *.<subdomain>) pointing at the EIP."
+  description = "Your subdomain path under base_domain. Single-level (\"scott\") or multi-level (\"demo.team\") both work. All app hostnames live one level deeper: poolparty.<subdomain>.<base_domain>, auth.<subdomain>.<base_domain>, graphrag.<subdomain>.<base_domain>, etc. Multi-level lets one operator run multiple deployments under a single slot (e.g. \"demo.team\" + \"prod.team\") without colliding. You add two A records in Route 53 (<subdomain> + *.<subdomain>) pointing at the EIP."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$", var.subdomain))
-    error_message = "Subdomain must be lowercase, start/end with a letter or digit, and contain only letters, digits, dots, or hyphens. Multi-level (e.g. \"demo.stroker\") is supported."
+    error_message = "Subdomain must be lowercase, start/end with a letter or digit, and contain only letters, digits, dots, or hyphens. Multi-level (e.g. \"demo.team\") is supported."
   }
 }
 
 variable "base_domain" {
-  description = "Parent domain that hosts the per-teammate subdomain. Must be a domain whose DNS is hosted in Route 53 in this same AWS account (the EC2 instance role gets scoped Route 53 permissions to the zone via route53_zone_id). Defaults to the Graphwise presales domain registered through Route 53. Override only if you're using your own."
+  description = "Parent domain that hosts the per-deployment subdomain. Must be a domain whose DNS is hosted in Route 53 in this same AWS account (the EC2 instance role gets scoped Route 53 permissions to the zone via route53_zone_id). Required, deliberately with no default: cert-manager writes _acme-challenge TXT records into this zone for DNS-01 wildcard issuance, so a zone you do not control fails as AccessDenied partway through the deploy."
   type        = string
-  default     = "gw-pse.com"
 
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.base_domain))

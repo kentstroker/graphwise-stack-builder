@@ -33,8 +33,9 @@
 #   ./scripts/reset-helm.sh --yes <subdomain> [base_domain]
 #
 # Without --yes, prompts before the destructive steps. Subdomain is
-# required so we can re-render the values overlay; base_domain defaults
-# to gw-pse.com (the GA standard, matching render-values.sh + deploy-stack.sh).
+# required so we can re-render the values overlay; base_domain has no default
+# and is derived from GRAPHWISE_APEX when omitted (matching render-values.sh
+# and deploy-stack.sh).
 #
 # Env overrides:
 #   RELEASE_NAME       (default: graphwise-stack)
@@ -117,7 +118,25 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SUB="$1"
-BASE="${2:-gw-pse.com}"
+# base_domain: an explicit argument wins; otherwise derive it from
+# GRAPHWISE_APEX, which cloud-init exports on every instance (AWS and Azure) as
+# "<subdomain>.<base>" via /etc/profile.d/graphwise.sh, so the base is
+# everything after the first dot. There is deliberately NO baked-in default: a
+# base domain you do not own sends cert-manager's DNS-01 challenge at someone
+# else's hosted zone, which fails as AccessDenied a long way into the deploy.
+BASE="${2:-}"
+if [ -z "$BASE" ]; then
+    _apex="${GRAPHWISE_APEX:-}"
+    case "$_apex" in
+        *.*) BASE="${_apex#*.}" ;;
+    esac
+fi
+if [ -z "$BASE" ]; then
+    echo "Usage: $0 [--yes] [--skip-graphrag] <subdomain> [base_domain]" >&2
+    echo "  base_domain is required: pass it explicitly, or run this where" >&2
+    echo "  GRAPHWISE_APEX is set (the EC2/VM -- /etc/profile.d/graphwise.sh)." >&2
+    exit 2
+fi
 
 # Belt-and-braces: validate the rendered components against RFC 1123
 # before we touch anything, so a typo can't get as far as a half-failed

@@ -36,7 +36,7 @@ case "$OS" in
         ;;
     MINGW*|MSYS*|CYGWIN*|Windows_NT)
         echo "  ${YELLOW}Windows isn't in scope yet -- this toolchain is macOS only at this time.${RESET}"
-        echo "  ${DIM}Reach out to Kent if you need a Windows path.${RESET}"
+        echo "  ${DIM}Use WSL2, or a macOS/Linux host, to run this toolchain.${RESET}"
         exit 1
         ;;
     *)

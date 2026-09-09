@@ -197,7 +197,7 @@ if [ -z "$KEY" ] || [ -z "$HOST" ]; then
 ${RED}ERROR:${RESET} GRAPHWISE_KEY and GRAPHWISE_HOST must be set in the environment.
 Set them once (per SETUP §7):
     export GRAPHWISE_KEY=~/.ssh/graphwise-stack.pem
-    export GRAPHWISE_HOST=<subdomain>.<base-domain>   # e.g. bell.va-benefits.semantic-demo.com
+    export GRAPHWISE_HOST=<subdomain>.<base-domain>   # e.g. demo.example.com
     export GRAPHWISE_USER=ec2-user
 USAGE
     exit 2

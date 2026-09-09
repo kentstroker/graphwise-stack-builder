@@ -40,19 +40,18 @@ variable "resource_group_name" {
 # ---------------------------------------------------------------------------
 
 variable "subdomain" {
-  description = "Your subdomain path under base_domain. Single-level (\"scott\") or multi-level (\"demo.stroker\") both work. All app hostnames live one level deeper: poolparty.<subdomain>.<base_domain>, auth.<subdomain>.<base_domain>, graphrag.<subdomain>.<base_domain>, etc. You add two A records (<subdomain> + *.<subdomain>) in Route 53 pointing at the public IP."
+  description = "Your subdomain path under base_domain. Single-level (\"scott\") or multi-level (\"demo.team\") both work. All app hostnames live one level deeper: poolparty.<subdomain>.<base_domain>, auth.<subdomain>.<base_domain>, graphrag.<subdomain>.<base_domain>, etc. You add two A records (<subdomain> + *.<subdomain>) in Route 53 pointing at the public IP."
   type        = string
 
   validation {
     condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$", var.subdomain))
-    error_message = "Subdomain must be lowercase, start/end with a letter or digit, and contain only letters, digits, dots, or hyphens. Multi-level (e.g. \"demo.stroker\") is supported."
+    error_message = "Subdomain must be lowercase, start/end with a letter or digit, and contain only letters, digits, dots, or hyphens. Multi-level (e.g. \"demo.team\") is supported."
   }
 }
 
 variable "base_domain" {
-  description = "Parent domain that hosts the per-teammate subdomain. Must be a domain whose DNS is hosted in Route 53 -- the Azure stack still uses cert-manager's Route 53 DNS-01 solver for wildcard cert issuance, authenticated with the static IAM key pair below rather than an EC2 instance role. Nothing about the domain moves to Azure DNS."
+  description = "Parent domain that hosts the per-deployment subdomain. Must be a domain whose DNS is hosted in Route 53 -- the Azure stack still uses cert-manager's Route 53 DNS-01 solver for wildcard cert issuance, authenticated with the static IAM key pair below rather than an EC2 instance role. Nothing about the domain moves to Azure DNS. Required, deliberately with no default: a zone you do not control fails as AccessDenied partway through the deploy."
   type        = string
-  default     = "gw-pse.com"
 
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.base_domain))

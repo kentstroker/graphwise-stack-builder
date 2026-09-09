@@ -22,8 +22,9 @@
 # Usage (on the EC2, from ~/gsb):
 #   ./scripts/deploy-stack.sh <subdomain> [base_domain]
 #
-# base_domain defaults to gw-pse.com (the GA standard) -- reset-helm.sh and
-# render-values.sh now default to the same; we still pass it through explicitly.
+# base_domain has no baked-in default. Pass it explicitly, or omit it and let
+# it be derived from GRAPHWISE_APEX (cloud-init exports "<sub>.<base>" on the
+# instance). reset-helm.sh and render-values.sh resolve it the same way.
 #
 # Idempotent: every step is itself idempotent (helm upgrade --install,
 # create-or-replace Secrets). reset-helm is destructive to PVCs by design --
@@ -76,9 +77,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SUB="${1:-}"
-BASE="${2:-gw-pse.com}"
+# base_domain: an explicit argument wins; otherwise derive it from
+# GRAPHWISE_APEX, which cloud-init exports on every instance (AWS and Azure) as
+# "<subdomain>.<base>" via /etc/profile.d/graphwise.sh, so the base is
+# everything after the first dot. There is deliberately NO baked-in default: a
+# base domain you do not own sends cert-manager's DNS-01 challenge at someone
+# else's hosted zone, which fails as AccessDenied a long way into the deploy.
+BASE="${2:-}"
+if [ -z "$BASE" ]; then
+    _apex="${GRAPHWISE_APEX:-}"
+    case "$_apex" in
+        *.*) BASE="${_apex#*.}" ;;
+    esac
+fi
 if [ -z "$SUB" ]; then
-    echo "Usage: $0 <subdomain> [base_domain]   (base_domain default: gw-pse.com)" >&2
+    echo "Usage: $0 <subdomain> [base_domain]" >&2
+    exit 2
+fi
+if [ -z "$BASE" ]; then
+    echo "Usage: $0 <subdomain> [base_domain]" >&2
+    echo "  base_domain is required: pass it explicitly, or run this where" >&2
+    echo "  GRAPHWISE_APEX is set (the EC2/VM -- /etc/profile.d/graphwise.sh)." >&2
     exit 2
 fi
 

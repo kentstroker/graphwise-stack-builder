@@ -59,7 +59,7 @@ Required variables (no default — apply fails without them):
 | Variable | Notes |
 |---|---|
 | `region` | AWS region. Must be Bedrock-enabled or `graphrag-secrets.awsCredentials.region` must point at one. |
-| `base_domain` | Parent domain in a Route 53 hosted zone you own. PSE SEs use `gw-pse.com`. |
+| `base_domain` | Parent domain in a Route 53 hosted zone you own. Required -- no default, because a zone you do not control fails DNS-01 as AccessDenied. |
 | `route53_zone_id` | Hosted zone ID for `base_domain`. Format: `Z<UPPERCASE-ALPHANUM>`. **Validation regex `^Z[A-Z0-9]+$` accepts well-formed but wrong IDs.** Always verify with `aws route53 list-hosted-zones`. A wrong ID creates an IAM policy scoped to a nonexistent zone ARN → cert-manager gets `AccessDenied` on DNS-01 → wildcard cert never issues. |
 | `le_email` | Let's Encrypt ACME contact. Written to `/etc/profile.d/graphwise.sh` so `cluster-bootstrap.sh` picks it up automatically. |
 | `subdomain` | Subdomain under `base_domain`. Drives the apex hostname `<sub>.<base>` and all per-app subdomains `<app>.<sub>.<base>`. |

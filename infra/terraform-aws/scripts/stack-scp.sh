@@ -15,13 +15,13 @@
 #   ./prep-scripts/stack-scp.sh :~/wildcard-tls.yaml ./
 #       pull wildcard-tls.yaml from the EC2 to the current directory
 #
-#   ./prep-scripts/stack-scp.sh --stack kstroker logo.png :~/logo.png
-#       push to the kstroker stack without the picker
+#   ./prep-scripts/stack-scp.sh --stack demo logo.png :~/logo.png
+#       push to the demo stack without the picker
 #
 #   ./prep-scripts/stack-scp.sh -r ./data :~/staging-data/
 #       recursive push (e.g. uploading a staging-data folder)
 #
-#   ./prep-scripts/stack-scp.sh --stack stroker -r :~/gsb/files/ ./local-backup/
+#   ./prep-scripts/stack-scp.sh --stack demo -r :~/gsb/files/ ./local-backup/
 #       recursive pull from a named stack
 #
 # Exit codes:

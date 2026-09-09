@@ -3,11 +3,11 @@
 #
 # Each stack gets a labeled block written into ~/.zprofile:
 #
-#   # --- GW stack: stroker ---
-#   export GW_KEY_stroker="${HOME}/.ssh/stroker-stack-key.pem"
-#   export GW_HOST_stroker="stroker.gw-pse.com"
-#   alias sshstroker='ssh -i ${GW_KEY_stroker} ${GW_USER}@${GW_HOST_stroker}'
-#   # --- end GW stack: stroker ---
+#   # --- GW stack: demo ---
+#   export GW_KEY_demo="${HOME}/.ssh/demo-stack-key.pem"
+#   export GW_HOST_demo="demo.example.com"
+#   alias sshdemo='ssh -i ${GW_KEY_demo} ${GW_USER}@${GW_HOST_demo}'
+#   # --- end GW stack: demo ---
 #
 # GW_USER=ec2-user is written once and shared by all stacks (always ec2-user).
 # Sentinel comments make blocks safe to add and remove without touching anything else.
@@ -109,18 +109,25 @@ cmd_add() {
 
     # Stack name
     local name
-    read -rp "  Stack name (e.g. kstroker, kaiser): " name
+    read -rp "  Stack name (e.g. demo, eval): " name
     name="${name// /}"
     [ -z "$name" ] && die "Stack name cannot be empty."
     if parse_stacks | grep -qx "$name"; then
         die "Stack '${name}' already exists. Remove it first or choose a different name."
     fi
 
-    # Host
-    local host_default="${name}.gw-pse.com"
+    # Host. No base domain is baked in -- export GW_BASE_DOMAIN in your shell
+    # (e.g. GW_BASE_DOMAIN=example.com) to be offered "<name>.<base>" here.
+    local host_default=""
+    [ -n "${GW_BASE_DOMAIN:-}" ] && host_default="${name}.${GW_BASE_DOMAIN}"
     local host
-    read -rp "  Hostname [${host_default}]: " host
-    host="${host:-$host_default}"
+    if [ -n "$host_default" ]; then
+        read -rp "  Hostname [${host_default}]: " host
+        host="${host:-$host_default}"
+    else
+        read -rp "  Hostname (e.g. ${name}.example.com): " host
+    fi
+    [ -z "$host" ] && die "Hostname cannot be empty."
 
     # Key path
     local key_default="${HOME}/.ssh/${name}-stack-key.pem"

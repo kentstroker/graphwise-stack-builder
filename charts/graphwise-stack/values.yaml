@@ -34,11 +34,16 @@
 # ╚══════════════════════════════════════════════════════════════╝
 
 global:
-  # Per-teammate subdomain. Required. All app hostnames are computed:
+  # Per-deployment subdomain. Required; the value here is a placeholder that
+  # scripts/render-values.sh always overrides. All app hostnames are computed:
   #   poolparty.<subdomain>.<baseDomain>, auth.<subdomain>.<baseDomain>,
   #   graphrag.<subdomain>.<baseDomain>, ...
-  subdomain: "stroker"
-  baseDomain: "semantic-demo.com"
+  subdomain: "demo"
+  # Placeholder only. scripts/render-values.sh always supplies the real value
+  # from the deployment's base domain; templates/_helpers.tpl additionally
+  # `required`s it, so an unset value fails the render rather than deploying
+  # against a zone you do not own.
+  baseDomain: "example.com"
 
   # Image pull secret name for the Graphwise private registry.
   # Created by scripts/cluster-bootstrap.sh in the namespaces that
@@ -324,7 +329,7 @@ graphdb-embedded:
 graphdb-projects:
   enabled: true
   # nginx basic-auth is disabled for graphdb-projects. GraphDB-native
-  # security (kstroker/rdf#rocks or equivalent) is the auth gate.
+  # security (a GraphDB user you create) is the auth gate.
   # The ingress is CIDR-restricted instead; render-values.sh populates
   # allowedCidrs from admin_cidr in terraform.tfvars.
   basicAuth:

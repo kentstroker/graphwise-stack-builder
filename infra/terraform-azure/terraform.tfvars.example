@@ -29,7 +29,7 @@ location = "westus2"
 # Parent domain that hosts your subdomain. DNS stays in ROUTE 53 even
 # though the VM is on Azure — see README.md "Why Route 53 stays". Nothing
 # about the domain moves to Azure DNS.
-base_domain = "gw-pse.com"
+base_domain = "example.com"                  # CHANGEME -- no default; must be a zone you control
 
 # Route 53 hosted zone ID for base_domain. Get it once with:
 #   aws route53 list-hosted-zones --query 'HostedZones[?Name==`<base_domain>.`].Id' --output text | sed 's|/hostedzone/||'
@@ -44,7 +44,7 @@ le_email = "CHANGEME@gmail.com"
 # Your subdomain under base_domain. Final hostnames:
 #   <subdomain>.<base_domain>           -- Console landing
 #   <app>.<subdomain>.<base_domain>     -- every app (poolparty, auth, ...)
-subdomain = "CHANGEME"                       # e.g. "scott", or multi-level "demo.stroker"
+subdomain = "CHANGEME"                       # e.g. "scott", or multi-level "demo.team"
 
 # Operator-attribution tags surfaced on every Azure resource (Cost
 # Management, Azure Policy). `creator` is REQUIRED — validation rejects an

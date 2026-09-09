@@ -13,7 +13,7 @@
 # the cluster (just kubectl gets + curl HEAD-equivalents).
 #
 # Required env (auto-set by cloud-init's /etc/profile.d/graphwise.sh):
-#   GRAPHWISE_APEX   the apex hostname, e.g. "stroker.semantic-proof.com"
+#   GRAPHWISE_APEX   the apex hostname, e.g. "demo.example.com"
 #
 # Exit codes:
 #   0 -- all checks passed

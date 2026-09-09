@@ -188,7 +188,7 @@ locals {
   name_tag = "${var.instance_name_prefix}-${var.subdomain}"
 
   # Sanitized subdomain for AWS resource names: dots → hyphens. Lets
-  # multi-level subdomains (e.g. "demo.stroker") become "demo-stroker"
+  # multi-level subdomains (e.g. "demo.team") become "demo-team"
   # in resource names, which reads cleaner in the AWS Console and
   # avoids the few dashboards that get fussy about dotted names.
   subdomain_slug = replace(var.subdomain, ".", "-")
@@ -217,7 +217,7 @@ locals {
 
 resource "aws_security_group" "stack" {
   # Explicit, dot-free name so the SG is easy to spot in the EC2 Console
-  # filter (e.g. "graphwise-stack-demo-stroker-sg" rather than the
+  # filter (e.g. "graphwise-stack-demo-team-sg" rather than the
   # auto-assigned launch-wizard-N).
   name        = local.sg_name
   description = "Graphwise Stack KIND demo - HTTPS only + SSH-from-admin (${var.subdomain})"

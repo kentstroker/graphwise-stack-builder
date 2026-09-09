@@ -29,17 +29,17 @@
 #     write to stdout).
 #
 # Usage:
-#   ./scripts/render-values.sh stroker
-#     -> $HOME/.graphwise-stack/values-stroker.yaml          (umbrella overlay)
-#     -> $HOME/.graphwise-stack/values-stroker-graphrag.yaml (graphrag overlay)
+#   ./scripts/render-values.sh demo
+#     -> $HOME/.graphwise-stack/values-demo.yaml          (umbrella overlay)
+#     -> $HOME/.graphwise-stack/values-demo-graphrag.yaml (graphrag overlay)
 #
-#   ./scripts/render-values.sh stroker semantic-proof.com
+#   ./scripts/render-values.sh demo example.com
 #     same, with explicit base domain.
 #
-#   ./scripts/render-values.sh --umbrella stroker > custom.yaml
+#   ./scripts/render-values.sh --umbrella demo > custom.yaml
 #     emit ONLY the umbrella overlay to stdout (legacy behavior).
 #
-#   ./scripts/render-values.sh --graphrag stroker > custom.yaml
+#   ./scripts/render-values.sh --graphrag demo > custom.yaml
 #     emit ONLY the graphrag overlay to stdout.
 #
 # OUT_DIR overrides the default $HOME/.graphwise-stack location.
@@ -71,7 +71,25 @@ if [[ $# -lt 1 ]]; then
 fi
 
 SUB="$1"
-BASE="${2:-gw-pse.com}"
+# base_domain: an explicit argument wins; otherwise derive it from
+# GRAPHWISE_APEX, which cloud-init exports on every instance (AWS and Azure) as
+# "<subdomain>.<base>" via /etc/profile.d/graphwise.sh, so the base is
+# everything after the first dot. There is deliberately NO baked-in default: a
+# base domain you do not own sends cert-manager's DNS-01 challenge at someone
+# else's hosted zone, which fails as AccessDenied a long way into the deploy.
+BASE="${2:-}"
+if [ -z "$BASE" ]; then
+    _apex="${GRAPHWISE_APEX:-}"
+    case "$_apex" in
+        *.*) BASE="${_apex#*.}" ;;
+    esac
+fi
+if [ -z "$BASE" ]; then
+    echo "Usage: $0 [--umbrella|--graphrag|--both] <subdomain> [base_domain]" >&2
+    echo "  base_domain is required: pass it explicitly, or run this where" >&2
+    echo "  GRAPHWISE_APEX is set (the EC2/VM -- /etc/profile.d/graphwise.sh)." >&2
+    exit 2
+fi
 OUT_DIR="${OUT_DIR:-$HOME/.graphwise-stack}"
 
 # Apex + per-app hostnames.
@@ -98,10 +116,13 @@ REFINE_HOST="refine.${APEX}"
 # ---------------------------------------------------------------------
 _REPO_ROOT_TF="$(cd "$(dirname "$0")/.." && pwd)"
 if [ -z "${TFVARS_PATH:-}" ]; then
-    # Search per-stack directories in order; use the first terraform.tfvars found.
-    # Each EC2 clone typically has exactly one of these present.
-    for _tfdir in terraform-stroker terraform; do
-        _tfvars="${_REPO_ROOT_TF}/infra/${_tfdir}/terraform.tfvars"
+    # Use the first terraform.tfvars found under any infra/terraform-*/ tree.
+    # Globbed rather than listed by name: the previous hardcoded list
+    # ("terraform-stroker", "terraform") matched no directory that ships in this
+    # repo, so admin_cidr never resolved and the Refine ingress silently fell
+    # back to 0.0.0.0/0 on every deploy. A glob keeps working across the
+    # terraform-example -> terraform-aws rename and any future cloud tree.
+    for _tfvars in "${_REPO_ROOT_TF}"/infra/terraform-*/terraform.tfvars; do
         if [ -f "$_tfvars" ]; then
             TFVARS_PATH="$_tfvars"
             break
