@@ -165,7 +165,7 @@ What survives the stop:
 
 What's billed while stopped:
   - Compute: \$0/hr (the win -- ~\$0.34/hr for r6g.2xlarge -> \$0)
-  - EBS storage: ~\$25/mo for 300 GB gp3
+  - EBS storage: ~\$8/mo for 100 GB gp3
   - EIP retention: ~\$3.60/mo (allocated but not attached to running instance)
 
 To bring it back:

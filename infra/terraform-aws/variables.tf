@@ -66,7 +66,7 @@ variable "instance_type" {
 }
 
 variable "root_volume_gb" {
-  description = "Root EBS volume size in GiB. 300 GiB gives headroom for the KIND containerd image cache (every Helm chart pulls fresh into the node container), local-path-provisioner PVCs (GraphDB data, Postgres clusters, ES indices), and log growth. Can be grown later; can't be shrunk."
+  description = "Root EBS volume size in GiB. 100 GiB covers the KIND containerd image cache (every Helm chart pulls fresh into the node container), local-path-provisioner PVCs (GraphDB data, Postgres clusters, ES indices), and log growth. Raise it before staging a large corpus onto the instance. Can be grown later; can't be shrunk."
   type        = number
   default     = 100
 }

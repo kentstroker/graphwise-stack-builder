@@ -92,8 +92,8 @@ existing_eip_allocation_id = "eipalloc-CHANGEME"
 # leaves JVM heaps tight.
 # instance_type = "r6g.2xlarge"
 
-# Root EBS volume size. 300 GiB is the shipped recommendation.
-# root_volume_gb = 300
+# Root EBS volume size. 100 GiB is the default.
+# root_volume_gb = 100
 
 # Note: SSH user is `ec2-user` (Amazon Linux 2023 default). Not
 # configurable -- the named_user knob was dropped during the AL2023

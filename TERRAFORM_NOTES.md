@@ -17,7 +17,7 @@ AWS resources:
 | Resource | Details |
 |---|---|
 | `aws_security_group.stack` | Inbound: SSH, HTTP (port 80), and HTTPS (port 443) all restricted to `admin_cidr`. Outbound: all. `ignore_changes = [ingress]` so manual SG additions (EC2 Instance Connect) survive future applies. LE cert issuance uses DNS-01 exclusively — no inbound port required. |
-| `aws_instance.stack` | EC2 instance (default `r6g.2xlarge`, AL2023 ARM64, 300 GiB encrypted gp3). `ignore_changes = [ami, user_data_base64]` prevents AMI-lookup drift and user-data edits from forcing a rebuild. |
+| `aws_instance.stack` | EC2 instance (default `r6g.2xlarge`, AL2023 ARM64, 100 GiB encrypted gp3). `ignore_changes = [ami, user_data_base64]` prevents AMI-lookup drift and user-data edits from forcing a rebuild. |
 | `aws_iam_role` + `aws_iam_instance_profile` | EC2 instance role with a single inline policy (`graphwise-stack-route53`) granting `route53:ChangeResourceRecordSets` + `route53:ListResourceRecordSets` scoped to the hosted zone ARN built from `route53_zone_id`. cert-manager uses this role (via IMDSv2) for DNS-01 wildcard cert issuance. |
 | `aws_eip_association` **or** `aws_eip` | If `existing_eip_allocation_id` is set: associates the pre-allocated EIP (EIP itself lives outside Terraform; destroy only detaches). If the var is empty: creates a fresh EIP that is released on destroy. Always use the pre-allocated path — a fresh EIP means re-doing DNS after every rebuild. |
 | `random_id.n8n_key` | Generates the 32-byte `n8n_encryption_key` once. Stored in Terraform state; never regenerated unless `terraform destroy`+apply. Changing it makes every saved n8n credential unreadable. |
@@ -74,7 +74,7 @@ Notable optional variables:
 | Variable | Default | Notes |
 |---|---|---|
 | `instance_type` | `r6g.2xlarge` | Graviton ARM64. `r6g.xlarge` works for lightweight demos (JVM heaps tighter). |
-| `root_volume_gb` | `300` | gp3, encrypted. |
+| `root_volume_gb` | `100` | gp3, encrypted. Can be grown later; can't be shrunk. |
 | `ami_override` | `""` | Pin the AMI after first apply: `terraform output -raw ami_id` → paste here → `terraform plan` must show "No changes". Prevents spurious force-replace from AMI lookup drift. |
 | `github_repo_url` | upstream public URL | Repo cloned onto EC2 by cloud-init. Override for feature branches. |
 | `github_branch` | `"main"` | Branch cloned. Override only when testing pre-merge chart changes. |
