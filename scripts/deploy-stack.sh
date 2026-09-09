@@ -77,22 +77,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SUB="${1:-}"
+if [ -z "$SUB" ]; then
+    echo "Usage: $0 <subdomain> [base_domain]" >&2
+    exit 2
+fi
 # base_domain: an explicit argument wins; otherwise derive it from
 # GRAPHWISE_APEX, which cloud-init exports on every instance (AWS and Azure) as
-# "<subdomain>.<base>" via /etc/profile.d/graphwise.sh, so the base is
-# everything after the first dot. There is deliberately NO baked-in default: a
-# base domain you do not own sends cert-manager's DNS-01 challenge at someone
-# else's hosted zone, which fails as AccessDenied a long way into the deploy.
+# "<subdomain>.<base>" via /etc/profile.d/graphwise.sh. There is deliberately NO
+# baked-in default: a base domain you do not own sends cert-manager's DNS-01
+# challenge at someone else's hosted zone, which fails as AccessDenied a long
+# way into the deploy.
+#
+# Strip the KNOWN subdomain, not just the first label -- subdomain is allowed to
+# be multi-level ("demo.team"), so for GRAPHWISE_APEX=demo.team.example.com the
+# base is example.com, not team.example.com. If the apex does not start with
+# "<subdomain>." we cannot know where the split belongs, so BASE stays empty and
+# the check below fails loudly rather than guessing a zone.
 BASE="${2:-}"
 if [ -z "$BASE" ]; then
     _apex="${GRAPHWISE_APEX:-}"
     case "$_apex" in
-        *.*) BASE="${_apex#*.}" ;;
+        "$SUB".*) BASE="${_apex#"$SUB".}" ;;
     esac
-fi
-if [ -z "$SUB" ]; then
-    echo "Usage: $0 <subdomain> [base_domain]" >&2
-    exit 2
 fi
 if [ -z "$BASE" ]; then
     echo "Usage: $0 <subdomain> [base_domain]" >&2
