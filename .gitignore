@@ -17,7 +17,18 @@
 /CLAUDE.md
 /SECURITY_ASSESSMENT.md
 *.pdf
-/docs/
+# Narrowed from a blanket /docs/ so the operator-facing guides can be tracked.
+# Only maintainer-private subtrees stay ignored; anything local-only added to
+# docs/ later needs its own rule here.
+/docs/superpowers/
+/docs/claude/
+/docs/n8n-seed-scratch.md
+# These two document working default credentials -- a login password and a
+# PoolParty superadmin pair one of them states the deployment requires
+# verbatim. They stay on disk and are distributed out-of-band. Anything
+# referencing them from a tracked doc must not link to them.
+/docs/QUICK-START.md
+/docs/STACK-DEPLOYMENT.md
 /n8n/
 /n8n-workflows/
 /files/
@@ -65,3 +76,13 @@ crash.log
 
 # local kubectl/command scratchpad (never commit)
 /foo
+
+# Nested agent settings. The root-anchored /.claude/ above does not match
+# these; the laptop kit carries one at terraform-aws/.claude/.
+**/.claude/settings.local.json
+
+# Operator's master copy of files/, kept outside the module.
+/files.master/
+
+# n8n pg_dumpall output, whatever it gets named.
+**/*n8n*dump*.sql
