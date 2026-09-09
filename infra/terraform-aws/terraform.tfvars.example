@@ -101,7 +101,7 @@ existing_eip_allocation_id = "eipalloc-CHANGEME"
 # key and wheel-group sudo.
 
 # Repo to clone on first boot. Default is the public upstream.
-# github_repo_url = "https://github.com/kentstroker/graphwise-stack.builder"
+# github_repo_url = "https://github.com/kentstroker/graphwise-stack-builder"
 
 # Branch of github_repo_url that cloud-init clones onto the EC2.
 # "main" is the canonical deploy path. Override to a feature branch
