@@ -6,7 +6,7 @@
 
 image:
   repository: ontotext/poolparty-elasticsearch
-  tag: "9.3.8"
+  tag: "9.4.5"
   pullPolicy: IfNotPresent
 
 # Demo settings — match base.yaml today.

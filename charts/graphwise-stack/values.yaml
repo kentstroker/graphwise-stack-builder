@@ -171,12 +171,17 @@ keycloak:
   # that with this stack unless you know you're testing the gap.
   # Pre-loaded into KIND by cluster-bootstrap.sh so this name doesn't
   # need to be reachable from inside the cluster.
-  # Pinned to 2.5.0: this tag ships the 10.3 multi-client realm (ppt/ppgs/
-  # extractor/recommender/graphdb) that poolparty:10.3.1's role migration
-  # requires. Its Keycloak server is still 25.0.6, matching the operator pin
-  # in cluster-bootstrap.sh -- no operator bump needed. Do NOT float on
-  # :latest (Docker Hub :latest is a stale 2.1.x/single-client realm).
-  image: "ontotext/poolparty-keycloak:2.5.0"
+  # Pinned to 2.6.1: this tag ships the 10.3 multi-client realm (ppt/ppgs/
+  # extractor/recommender/graphdb) that poolparty:10.3.2's role migration
+  # requires. Ontotext releases poolparty, poolparty-keycloak and
+  # poolparty-elasticsearch as coordinated waves (10.3.2 + 2.6.1 + 9.4.5 all
+  # landed 2026-09-07/08), so bump this WITH the PoolParty tag, never
+  # independently -- a realm older than the PoolParty image is what broke the
+  # 10.3.0 upgrade twice. Its Keycloak server is 25.0.9-GW, still the 25.x
+  # line the operator pin in cluster-bootstrap.sh targets -- no operator bump
+  # needed. Do NOT float on :latest (Docker Hub :latest is a stale
+  # 2.1.x/single-client realm).
+  image: "ontotext/poolparty-keycloak:2.6.1"
   postgres:
     name: keycloak-postgres
     instances: 1

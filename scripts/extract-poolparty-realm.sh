@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEST="$REPO_ROOT/charts/keycloak-realms/files/poolparty-realm.json"
 
-IMAGE="${POOLPARTY_KEYCLOAK_IMAGE:-ontotext/poolparty-keycloak:2.5.0}"
+IMAGE="${POOLPARTY_KEYCLOAK_IMAGE:-ontotext/poolparty-keycloak:2.6.1}"
 
 # ---------------------------------------------------------------------------
 # Preflight: docker must be on PATH and the current shell must be able to
@@ -169,7 +169,7 @@ docker run --rm --entrypoint=sh "$IMAGE" -c "cat $found_json" > "$DEST"
 # Fix: rewrite the realm export at extract time so the values match what
 # PoolParty's image actually sends.
 #
-# Image-version coupling: as of the 10.3 platform (poolparty-keycloak:2.5.0),
+# Image-version coupling: as of the 10.3 platform (poolparty-keycloak:2.6.1),
 # the realm defines a SEPARATE Keycloak client per service, each with its own
 # ${..._KEYCLOAK_LOGIN_CLIENTSECRET} placeholder:
 #   ppt (Graph Modeling), ppgs (GraphSearch), extractor (PPX), recommender.

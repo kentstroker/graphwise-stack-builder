@@ -182,7 +182,7 @@ global:
 #
 # NOTE (2.2.7): re-tested — globals DO reach these subcharts (2.2.7's
 # global.alpine.image knob depends on it, and this overlay's own
-# `global:` block merges with the chart's rather than pruning its
+# \`global:\` block merges with the chart's rather than pruning its
 # siblings). Keeping the explicit wiring below because it works and is
 # load-bearing; just don't generalize the sentence above into "never
 # use globals here" when adding new umbrella-wide values.

@@ -6,7 +6,7 @@ in the poolparty realm automatically has login authorization for the
 `ppt` client.
 
 Why this exists:
-  10.3 "role isolation" (poolparty-keycloak:2.5.0) moved the PoolParty
+  10.3 "role isolation" (poolparty-keycloak:2.6.1) moved the PoolParty
   authorization roles from REALM roles to per-CLIENT roles (ppt/ppgs/
   extractor each define PoolPartyUser/Admin/ReadOnly/SuperAdmin), and the
   realm's `default-roles-poolparty` composite now ships EMPTY. Users
