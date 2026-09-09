@@ -40,10 +40,7 @@ set -euo pipefail
 PP_NAMESPACE="${PP_NAMESPACE:-graphwise}"
 PP_SERVICE="${PP_SERVICE:-graphwise-stack-poolparty}"
 PP_LOCAL_PORT="${PP_LOCAL_PORT:-18081}"
-# Default matches charts/graphwise-stack/values.yaml `superadminPassword`,
-# which is the published documented default for this demo stack. Override
-# with PP_AUTH='superadmin:<password>' on any stack that changed it.
-PP_AUTH="${PP_AUTH:-superadmin:rdf#rocks}"
+PP_AUTH="${PP_AUTH:-superadmin:corgiDAD#2}"
 READY_TIMEOUT="${READY_TIMEOUT:-600}"
 REBUILD_TIMEOUT="${REBUILD_TIMEOUT:-900}"
 CANARY_TEXT="${CANARY_TEXT:-asthma and allergy care}"
