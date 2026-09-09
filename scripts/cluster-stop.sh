@@ -130,22 +130,16 @@ fi
 echo
 echo "=== Stack quiesced ==="
 echo
-# --- Which cloud are we on? -------------------------------------------------
-# AWS IMDSv2 requires a token PUT; Azure's IMDS answers the same address with a
-# different API and no such endpoint, so a failed token fetch is a reliable
-# negative. Detection matters because the two clouds have OPPOSITE park
-# semantics: an EC2 stop halts compute billing, while an Azure VM that is
-# merely Stopped KEEPS billing -- only `az vm deallocate` stops the meter.
+# --- Are we on EC2? ---------------------------------------------------------
+# AWS IMDSv2 requires a token PUT, so a failed token fetch means this is not an
+# EC2 instance (or IMDS is blocked). In that case we print generic instructions
+# rather than guessing an instance id and region.
 CLOUD="unknown"
 IMDS_TOKEN=$(curl -fsS -m 2 -X PUT \
     -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
     http://169.254.169.254/latest/api/token 2>/dev/null || true)
 if [ -n "$IMDS_TOKEN" ]; then
     CLOUD="aws"
-elif curl -fsS -m 2 -H 'Metadata: true' \
-        'http://169.254.169.254/metadata/instance?api-version=2021-02-01' \
-        >/dev/null 2>&1; then
-    CLOUD="azure"
 fi
 
 case "$CLOUD" in
@@ -187,24 +181,11 @@ manual scale-up, no helm upgrade. Run cluster-resume.sh yourself only if
 you want to watch it, or if the unit is disabled.
 EOF
     ;;
-  azure)
-    cat <<'EOF'
-Now DEALLOCATE the Azure VM.
-
-  az vm deallocate --resource-group <rg> --name <vm>
-
-WARNING: `az vm stop` and `sudo shutdown` both leave the VM in a state the
-Portal shows as "Stopped" while it CONTINUES to bill for compute. Only
-`az vm deallocate` stops the meter.
-EOF
-    ;;
   *)
     cat <<'EOF'
-Now stop the VM from your cloud provider's console.
+Now stop the EC2 instance from the AWS console or CLI.
 
-  AWS:   aws ec2 stop-instances --instance-ids <id> --region <region>
-  Azure: az vm deallocate --resource-group <rg> --name <vm>
-         (a merely-Stopped Azure VM keeps billing; deallocate is required)
+  aws ec2 stop-instances --instance-ids <id> --region <region>
 EOF
     ;;
 esac
