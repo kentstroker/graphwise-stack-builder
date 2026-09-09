@@ -1,0 +1,60 @@
+DOMAIN: Kaiser Permanente health-plan coverage knowledge graph (plans, benefits, cost sharing).
+
+SCHEMA MAP (verified against the live repo):
+- Plans: ?plan a onto:HealthPlanPolicy ; rdfs:label ?label .
+  Plans also carry skos:altLabel with marketing names (e.g. 'Kaiser Permanente
+  Senior Advantage Santa Clara Basic Plan (HMO)') and contract ids ('H0524-039') -
+  match plan names against rdfs:label AND skos:altLabel.
+  Medicare plans also carry onto:contractNumber (e.g. 'H0524') and
+  onto:planBenefitPackageNumber (e.g. '039'); plan URIs look like data:plan/H0524-039.
+- Documents: ?doc a onto:Document ; dcterms:title ?title ; onto:describes ?plan .
+  Plans may also link prov:wasDerivedFrom to their source document node.
+- Cost-share facts: ?plan onto:hasCoverageRule ?rule .
+  ?rule a onto:CoverageRule | onto:CopayRule | onto:CoinsuranceRule |
+         onto:DeductibleRule | onto:DrugTierRule ;
+        onto:appliesToService ?svc ;
+        onto:coverageStatus ?status ;      # 'covered' | 'conditional' | 'not-covered'
+        onto:rawText ?raw .                # verbatim source wording - quote this in answers
+  OPTIONAL: onto:copayAmount, onto:coveragePercentage, onto:networkTier,
+            onto:coverageTier ('self-only' etc.), onto:deductibleAmount,
+            onto:outOfPocketMaximum (on DeductibleRule, for Individual & Family plans),
+            onto:requiresPriorAuthorization (boolean), onto:countsTowardMoop (boolean).
+  Services: ?svc a onto:HealthCareService ; rdfs:label ?svcLabel .
+
+RECIPE - ALWAYS DO THIS FIRST:
+1. Resolve the member's plan to a plan URI before anything else. Match tokens from the
+   plan name with CONTAINS(LCASE(...)) on plan rdfs:label AND on document dcterms:title
+   (then follow onto:describes). Example tokens: 'senior advantage', 'santa clara',
+   'basic'. Never require an exact label match.
+2. Scope every subsequent query to that plan URI via onto:hasCoverageRule.
+3. For benefit questions, filter service labels with CONTAINS(LCASE(?svcLabel), ...)
+   on a distinctive word ('mental', 'therapy', 'ambulance', ...).
+
+WORKED EXAMPLE (mental-health cost sharing for one plan; returns copays + verbatim text):
+SELECT DISTINCT ?svcLabel ?ruleType ?copay ?status ?raw WHERE {
+  ?plan a onto:HealthPlanPolicy ; rdfs:label ?planLabel ; onto:hasCoverageRule ?rule .
+  FILTER(CONTAINS(LCASE(STR(?planLabel)), 'santa clara') && CONTAINS(LCASE(STR(?planLabel)), 'basic'))
+  ?rule onto:appliesToService ?svc ; a ?ruleType ; onto:coverageStatus ?status ; onto:rawText ?raw .
+  OPTIONAL { ?rule onto:copayAmount ?copay }
+  ?svc rdfs:label ?svcLabel .
+  FILTER(CONTAINS(LCASE(STR(?svcLabel)), 'mental') || CONTAINS(LCASE(STR(?svcLabel)), 'therapy'))
+  FILTER(STRSTARTS(STR(?ruleType), STR(onto:)))
+}
+
+GOTCHAS:
+- Service labels may contain stray bullet glyphs and duplicate variants; always match
+  with CONTAINS(LCASE(...)), never equality, and DISTINCT your results.
+- RDFS entailment adds rdfs:Resource / prov:Entity rows to 'a ?type' queries; keep
+  FILTER(STRSTARTS(STR(?ruleType), STR(onto:))) when selecting rule types.
+- coverageStatus 'not-covered' is a definitive negative - answer 'no' confidently and
+  cite rawText.
+- Prefer these typed facts over document chunks for any dollar amount, copay,
+  coinsurance, deductible, or out-of-pocket figure; include rawText as the citation.
+- Prior authorization and out-of-pocket-maximum treatment come ONLY from the typed
+  facts onto:requiresPriorAuthorization and onto:countsTowardMoop on the service's own
+  rule. Never infer them from dagger/asterisk footnote legends seen in chunk text -
+  those legends repeat on every page and apply only to explicitly marked services.
+  If the typed fact is absent, do not claim prior auth is required or that costs are
+  excluded from the maximum out-of-pocket.
+- Inpatient psychiatric care and partial hospitalization are DIFFERENT services with
+  different cost sharing; never present one's amounts as the other's.
