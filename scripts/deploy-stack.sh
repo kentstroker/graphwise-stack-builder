@@ -17,7 +17,8 @@
 #
 # The individual scripts are left in place for troubleshooting -- this is
 # just the streamlined "happy path" for a typical GA deploy. Run it after
-# `terraform apply` + `push-initial.sh` (see NEW-STACK.md).
+# `terraform apply` and the secrets step (see STACK-BUILDER.md
+# "Operator secrets and credentials").
 #
 # Usage (on the EC2, from ~/gsb):
 #   ./scripts/deploy-stack.sh <subdomain> [base_domain]
@@ -128,9 +129,9 @@ fi
 [ -z "${LE_EMAIL:-}" ]       && { echo "${RED}✗${RESET} LE_EMAIL not set (cloud-init writes it; source /etc/profile.d/graphwise.sh or export it)." >&2; fail=1; } || echo "${GREEN}✓${RESET} LE_EMAIL set"
 [ -z "${GRAPHWISE_APEX:-}" ] && { echo "${YELLOW}!${RESET} GRAPHWISE_APEX not set; cluster-bootstrap will re-derive from cloud-init env."; }
 
-# (c) Operator secrets delivered by push-initial.sh.
+# (c) Operator secrets: filled in on the instance, or restored by push-config.sh.
 if [ ! -f "$HOME/graphwise-secrets.yaml" ]; then
-    echo "${RED}✗${RESET} ~/graphwise-secrets.yaml missing -- run push-initial.sh from your laptop first (NEW-STACK.md step 6)." >&2
+    echo "${RED}✗${RESET} ~/graphwise-secrets.yaml missing -- cloud-init normally creates it; fill it in, or restore a snapshot with infra/terraform-aws/scripts/push-config.sh (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2
     fail=1
 else
     echo "${GREEN}✓${RESET} ~/graphwise-secrets.yaml present"
@@ -142,13 +143,13 @@ for f in poolparty.key graphdb.license uv-license.key; do
     [ -f "$REPO_ROOT/files/licenses/$f" ] || { echo "${RED}✗${RESET} missing files/licenses/$f"; miss_lic=1; }
 done
 if [ "$miss_lic" = "0" ]; then echo "${GREEN}✓${RESET} license files present"; else
-    echo "    Push them with push-initial.sh (NEW-STACK.md step 6)." >&2; fail=1
+    echo "    Push them with infra/terraform-aws/scripts/push-config.sh, or scp them to ~/gsb/files/licenses/ (STACK-BUILDER.md \"Operator secrets and credentials\")." >&2; fail=1
 fi
 
 # (e) DNS soft check -- non-fatal (cert-manager retries), but warn loudly.
 if command -v dig >/dev/null 2>&1 && [ -n "${GRAPHWISE_APEX:-}" ]; then
     if [ -z "$(dig +short "$GRAPHWISE_APEX" 2>/dev/null)" ]; then
-        echo "${YELLOW}!${RESET} ${GRAPHWISE_APEX} does not resolve yet -- the wildcard cert won't go Ready until DNS is live (NEW-STACK.md step 2)."
+        echo "${YELLOW}!${RESET} ${GRAPHWISE_APEX} does not resolve yet -- the wildcard cert won't go Ready until DNS is live (STACK-BUILDER.md \"Prerequisites\")."
     else
         echo "${GREEN}✓${RESET} ${GRAPHWISE_APEX} resolves"
     fi
@@ -194,4 +195,4 @@ echo "${BOLD}[4/4] restore-workflows-dumpall.sh${RESET}"
 echo
 echo "${BOLD}${GREEN}=== deploy-stack complete: https://${SUB}.${BASE}/ ===${RESET}"
 echo "Watch pods:   kubectl get pods -A -w"
-echo "Verify URLs:  NEW-STACK.md step 8   |   credentials: CONSOLE-GUIDE.md"
+echo "Verify URLs and credentials:  STACK-BUILDER.md \"App URLs and credentials\""

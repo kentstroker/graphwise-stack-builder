@@ -60,7 +60,7 @@ variable "base_domain" {
 }
 
 variable "route53_zone_id" {
-  description = "Route 53 hosted zone ID for base_domain (e.g. \"Z01234567ABCDEFGHIJK\"). Get it once with: aws route53 list-hosted-zones --query 'HostedZones[?Name==`<base_domain>.`].Id' --output text | sed 's|/hostedzone/||'. Written to /etc/profile.d/graphwise.sh on the VM; scripts/cluster-bootstrap.sh feeds it to the cert-manager DNS-01 solver. NOTE: the AWS module's validation regex accepts any well-formed-but-WRONG zone ID; the same trap applies here (see CLAUDE.md -> 'Wrong route53_zone_id'). Verify the value, don't trust the regex."
+  description = "Route 53 hosted zone ID for base_domain (e.g. \"Z01234567ABCDEFGHIJK\"). Get it once with: aws route53 list-hosted-zones --query 'HostedZones[?Name==`<base_domain>.`].Id' --output text | sed 's|/hostedzone/||'. Written to /etc/profile.d/graphwise.sh on the VM; scripts/cluster-bootstrap.sh feeds it to the cert-manager DNS-01 solver. NOTE: the AWS module's validation regex accepts any well-formed-but-WRONG zone ID; the same trap applies here (see TERRAFORM_NOTES.md -> Troubleshooting). Verify the value, don't trust the regex."
   type        = string
 
   validation {

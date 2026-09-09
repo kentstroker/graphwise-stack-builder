@@ -128,7 +128,7 @@ graphrag-secrets:
   # actual in-cluster name is `graphwise-stack-poolparty-elasticsearch`,
   # not the bare `poolparty-elasticsearch`. Matches the same naming
   # convention as the graphdb-embedded / graphdb-projects services
-  # (see CLAUDE.md "GraphDB subchart fullname pattern").
+  # (the GraphDB subchart's "<release>-<alias>" fullname pattern).
   #
   # If you ever rename the umbrella's Helm release away from
   # `graphwise-stack`, update this URL in lockstep.
@@ -431,7 +431,7 @@ addons:
     # crashes immediately with `exec /opt/ontorefine/dist/bin/ontorefine:
     # exec format error`. Flip to true ONLY on an amd64-instance deploy
     # (e.g. swap `instance_type` to a non-r6g family in tfvars). See
-    # CLAUDE.md "Currently open issues" for the vendor-side request to
+    # tracked as a vendor-side request to
     # publish a multi-arch tag.
     enabled: false
     externalUrl: ""

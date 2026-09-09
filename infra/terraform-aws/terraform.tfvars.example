@@ -76,7 +76,7 @@ admin_cidr = "CHANGEME/32"                   # e.g. "203.0.113.42/32"
 availability_zone = "CHANGEME"               # e.g. "us-west-2a"
 
 # Pre-allocated Elastic IP allocation ID. Allocate the EIP and capture
-# the Allocation ID per SETUP.md §6 → "Pre-allocate the Elastic IP"
+# the Allocation ID -- see STACK-BUILDER.md "Prerequisites"
 # BEFORE running terraform apply. Format: eipalloc-... (Allocation ID,
 # NOT the ARN). Pinning to a pre-allocated EIP keeps the IP stable
 # across terraform destroy/apply cycles so DNS records stay valid

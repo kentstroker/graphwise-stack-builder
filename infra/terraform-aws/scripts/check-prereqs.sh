@@ -3,7 +3,7 @@
 #
 # Stand-alone: run this on your Mac BEFORE anything else. It verifies the OS,
 # the required CLI tools, AWS auth, Python/PyYAML, and your working folder --
-# the same prerequisites documented in NEW-STACK.md §0 and SETUP.md. It changes
+# the same prerequisites documented in STACK-BUILDER.md "Prerequisites". It changes
 # nothing; it only reports what's present and what to install.
 #
 # macOS only at this time.
@@ -127,8 +127,8 @@ echo "${BOLD}--------------------------------------------------------------${RES
 MSG_WARN=""; [ "$WARN" -gt 0 ] && MSG_WARN="  (${WARN} warning(s) above)"
 if [ "$FAIL" -eq 0 ]; then
     echo "${GREEN}${BOLD}All required prerequisites are in place.${RESET}${MSG_WARN}"
-    echo "Next: follow DEPLOYMENT_GUIDE.md to provision your stack."
-    echo "${DIM}(AWS account items -- EC2 key pair, Elastic IP, Route 53 DNS -- are in NEW-STACK.md / SETUP.md.)${RESET}"
+    echo "Next: follow STACK-BUILDER.md \"Provisioning and bootstrap\" to provision your stack."
+    echo "${DIM}(AWS account items -- EC2 key pair, Elastic IP, Route 53 DNS -- are in STACK-BUILDER.md \"Prerequisites\".)${RESET}"
     exit 0
 else
     echo "${RED}${BOLD}${FAIL} required check(s) failed${RESET}${MSG_WARN}. Fix the marked items above, then re-run."

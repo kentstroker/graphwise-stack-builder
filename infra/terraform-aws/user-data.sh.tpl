@@ -11,7 +11,7 @@
 # $${aws_region}. Other shell expansions need $$ to survive Terraform.
 #
 # AWS user-data has a 16KB limit (after base64-encode). Keep this
-# file lean -- detailed rationale belongs in CLAUDE.md, not here.
+# file lean -- detailed rationale belongs in TERRAFORM_NOTES.md, not here.
 
 set -euo pipefail
 exec > >(tee /var/log/bootstrap.log | logger -t bootstrap) 2>&1

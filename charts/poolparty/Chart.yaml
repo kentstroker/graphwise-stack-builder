@@ -13,7 +13,7 @@ description: |
   Critical wiring: POOLPARTY_KEYCLOAK_AUTHURL must be the PUBLIC
   Keycloak URL (https://auth.<sub>.<base>/) — Spring Security's JWT
   decoder strict-equality matches this against the issuer claim. See
-  CLAUDE.md "OIDC issuer-match rule".
+  STACK-BUILDER.md "Keycloak SSO and the OIDC issuer invariant".
 type: application
 version: 3.0.0
 appVersion: "10.3.2"

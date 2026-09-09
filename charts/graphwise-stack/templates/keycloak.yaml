@@ -5,7 +5,8 @@ Keycloak instance, managed by the operator. Single replica for demo
 
 hostname.hostname is the public Keycloak URL — used by the operator
 to set Keycloak's own KC_HOSTNAME, which MUST exactly match the
-issuer claim in JWTs (CLAUDE.md "Keycloak hostname rule"). Per Q5
+issuer claim in JWTs (see STACK-BUILDER.md "Keycloak SSO and the OIDC
+# issuer invariant"). Per Q5
 (subdomains), Keycloak lives on auth.<sub>.<base> with NO context
 path, so issuer URLs come out as https://auth.<sub>.<base>/realms/X.
 

@@ -43,7 +43,7 @@ config, and no variables with the AWS module. Nothing here can affect an AWS
 deployment, and vice versa. Even the ignore rules are folder-local
 (`.gitignore` here, rather than an edit to the repo root) so the Azure work
 can be lifted out and handed to a teammate on its own — the same way
-`infra/terraform-subdomain/` is distributed.
+`infra/terraform-aws/` is distributed.
 
 Three files outside this folder carry small additive, capability-gated edits —
 `scripts/cluster-bootstrap.sh`, `scripts/preflight-reset-helm.sh`, and

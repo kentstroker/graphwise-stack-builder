@@ -193,7 +193,7 @@ for entry in "graphwise:embedded" "graphdb:projects"; do
         check_pass "$ns/$name  (StatefulSet + Service)"
     else
         check_fail "$ns/$name MISSING (StatefulSet or Service)" \
-                   "graphdb fullname helper or namespace override may have regressed -- see CLAUDE.md"
+                   "graphdb fullname helper or namespace override may have regressed"
     fi
 done
 
@@ -446,7 +446,7 @@ ${BOLD}${CYAN}Where to click next:${RESET}
   ${BOLD}Kubernetes Dashboard${RESET}      https://dashboard.$APEX/
                               ${DIM}upload ~/dashboard-kubeconfig.yaml${RESET}
 
-${DIM}Full URL + credentials reference: CONSOLE-GUIDE.md${RESET}
+${DIM}Full URL + credentials reference: STACK-BUILDER.md${RESET}
 
 NEXTSTEPS
 
@@ -455,6 +455,6 @@ if [ "$FAIL_COUNT" = "0" ]; then
     exit 0
 else
     printf '%s✗ %d check(s) failed. Investigate above before demoing.%s\n' "$RED$BOLD" "$FAIL_COUNT" "$RESET"
-    printf '%sCONSOLE-GUIDE.md "If something breaks" runbook is the next stop.%s\n\n' "$DIM" "$RESET"
+    printf '%sSTACK-BUILDER.md "Troubleshooting" is the next stop.%s\n\n' "$DIM" "$RESET"
     exit 1
 fi

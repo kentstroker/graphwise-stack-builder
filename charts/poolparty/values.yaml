@@ -46,7 +46,7 @@ elasticsearch:
   username: ""
   password: ""
 
-# Keycloak wiring — see CLAUDE.md "OIDC issuer-match rule".
+# Keycloak wiring - see STACK-BUILDER.md "Keycloak SSO and the OIDC issuer invariant".
 # authUrl MUST be the public URL (https://auth.<sub>.<base>/) so it
 # matches the issuer claim Keycloak signs into JWTs.
 keycloak:

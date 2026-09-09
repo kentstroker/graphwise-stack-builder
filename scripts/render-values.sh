@@ -6,7 +6,7 @@
 #   2. graphrag           (in graphrag  namespace)  -- chatbot/etc overlay
 #
 # We emit two separate files.master because the GraphRAG charts are now a
-# separate Helm release (see CLAUDE.md "Two Helm releases" -- the
+# separate Helm release (see STACK-BUILDER.md "Helm releases overview" -- the
 # vendored chart's resources default to the release namespace, and
 # GraphRAG pods need to live in `graphrag` to mount the supporting
 # Secrets the umbrella creates there).
@@ -177,7 +177,7 @@ fi
 #
 # Remove the x86_64 branch (and everything else here) once Graphwise
 # publishes a multi-arch tag of ontotext/refine -- see the open-issue entry
-# in CLAUDE.md.
+# in STACK-BUILDER.md.
 # ---------------------------------------------------------------------
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$(uname -m)" = "x86_64" ]; then

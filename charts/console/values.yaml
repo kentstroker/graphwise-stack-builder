@@ -37,7 +37,7 @@ replicas: 1
 # password lives in the umbrella's keycloak.bootstrapAdmin.password).
 #
 # Authoritative reference for every credential in the stack lives in
-# CONSOLE-GUIDE.md → "Credentials reference"; keep these in sync.
+# STACK-BUILDER.md -> "App URLs and credentials"; keep these in sync.
 credentials:
   # PoolParty SSO — superadmin user is baked into the Ontotext image.
   poolparty: "superadmin / poolparty"

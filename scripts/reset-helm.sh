@@ -25,7 +25,7 @@
 # hostnames in values.yaml after this script completes. If you change a
 # default in charts/graphwise-stack/values.yaml or
 # charts/console/values.yaml, re-running this script (or a plain
-# helm upgrade) updates the page automatically. CONSOLE-GUIDE.md is
+# helm upgrade) updates the page automatically. STACK-BUILDER.md is
 # the authoritative reference for every credential in the stack.
 #
 # Usage:

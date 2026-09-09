@@ -74,11 +74,12 @@ Published under the Apache License 2.0, AS-IS, no warranty, no support (see [NOT
 
 | I want to… | Go to… |
 |---|---|
-| Deploy as a PSE SE using the team kit | [infra/terraform-subdomain/DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md) |
+| Deploy a new stack on AWS | This file (§ Prerequisites, then § Provisioning and bootstrap) |
+| Deploy on Azure instead of AWS | [infra/terraform-azure/README.md](infra/terraform-azure/README.md) |
 | Understand what's running and why | This file (§ Architecture, § How a request gets routed) |
 | See all URLs and credentials | This file (§ App URLs and credentials) |
 | Understand the Terraform module and `user-data.sh.tpl` | [infra/TERRAFORM_NOTES.md](TERRAFORM_NOTES.md) |
-| Understand the chart internals, critical invariants, debug history | [CLAUDE.md](CLAUDE.md) |
+| Understand the chart internals and critical invariants | This file (§ Architecture, § Keycloak SSO and the OIDC issuer invariant) and the comments in `charts/graphwise-stack/values.yaml` |
 
 ---
 
@@ -146,7 +147,7 @@ Five hops. Troubleshooting works by asking "which hop broke?"
 | TCP timeout | Security Group, KIND port mapping, ingress-nginx pod not running |
 | TLS error | Cert not issued, wrong `tls.secretName`, reflector not running |
 | HTTP 502 / 503 | App pod not Ready |
-| OIDC redirect loop | Keycloak issuer mismatch (see [CLAUDE.md § Critical rules](CLAUDE.md)) |
+| OIDC redirect loop | Keycloak issuer mismatch (see § Keycloak SSO and the OIDC issuer invariant) |
 
 ### Subdomain routing
 
@@ -199,7 +200,7 @@ a DNS-01 round trip.
 **To check cert status:** `kubectl get certificate -n cert-manager wildcard-tls`
 (want `READY=True`). Stuck in `False` → `kubectl describe order -n cert-manager`
 surfaces the AWS error. Most common cause: wrong `route53_zone_id` in
-`terraform.tfvars` (see [CLAUDE.md resolved bug catalog](CLAUDE.md)).
+`terraform.tfvars` (see [TERRAFORM_NOTES.md § Troubleshooting](TERRAFORM_NOTES.md)).
 
 ---
 
@@ -342,7 +343,7 @@ because the SG carries `ignore_changes = [ingress]`).
 ## Provisioning and bootstrap
 
 ```bash
-cd infra/terraform-<stack>
+cd infra/terraform-aws
 cp terraform.tfvars.example terraform.tfvars
 $EDITOR terraform.tfvars          # fill in REQUIRED block
 terraform init
@@ -368,7 +369,7 @@ See [infra/TERRAFORM_NOTES.md → Safety](TERRAFORM_NOTES.md) for full rationale
 
 **Set up SSH convenience entries (optional but recommended):**
 ```bash
-cd infra/terraform-subdomain
+cd infra/terraform-aws
 ./scripts/manage-stacks.sh add    # prompts for name, host, key, alias
 source ~/.zprofile                # activate the alias immediately
 ```
@@ -406,7 +407,7 @@ check on its own and writes nothing, which makes it usable as a cron or CI check
 The Azure twin, `infra/terraform-azure/scripts/azure-manage-inbound-ip.sh`,
 carries the same audit against NSG sources `*` / `Internet` / `0.0.0.0/0`.
 
-For the full post-apply build sequence, see [DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md).
+For the full post-apply build sequence, see § Provisioning and bootstrap above.
 
 ---
 
@@ -452,14 +453,14 @@ files/licenses/uv-license.key
 
 Before `terraform destroy`, save the operator state from the live EC2:
 ```bash
-cd infra/terraform-<stack>
+cd infra/terraform-aws
 ./scripts/pull-config.sh          # saves to ./graphwise-config-<host>-<UTC>/
 ```
 
 Captures: `graphwise-secrets.yaml`, license files, live wildcard TLS cert, dashboard
 kubeconfig. After the next `terraform apply`, restore everything in one shot:
 ```bash
-cd infra/terraform-<stack>
+cd infra/terraform-aws
 ./scripts/push-config.sh          # auto-discovers the most recent snapshot
 ```
 
@@ -578,7 +579,7 @@ Staging data survives EC2 stop/start and `reset-helm.sh` but **not** `terraform 
 The stack wires a three-layer path from EC2 disk to pod filesystem:
 `~/staging-data/` (EC2 EBS) → KIND `extraMount` (`/staging-data` inside the container) →
 Kubernetes `hostPath` PV → PVC `staging-data` in each namespace → pod `volumeMount`.
-See [CLAUDE.md → Chart internals](CLAUDE.md) for the PV/PVC YAML and checklist.
+See the comments in `charts/graphwise-stack/templates/staging-data.yaml` for the PV/PVC definitions.
 
 ---
 
@@ -648,7 +649,7 @@ in `graphwise` ns, `graphdb-projects` in `graphdb` ns) — giving two fully inde
 GraphDB instances from one chart definition.
 
 For chart internals, invariants that cause stack breakage, and the full resolved bug
-catalog, see [CLAUDE.md](CLAUDE.md).
+catalog, see § Troubleshooting below.
 
 ---
 
@@ -682,7 +683,7 @@ curl -s https://auth.<sub>.<base>/realms/poolparty/.well-known/openid-configurat
 | Symptom | First command | Resolution path |
 |---|---|---|
 | TLS error on any URL | `kubectl get certificate -n cert-manager wildcard-tls` | `READY=False` → `kubectl describe order -n cert-manager`. AccessDenied = wrong `route53_zone_id`. |
-| Wildcard cert stuck `False` | `kubectl describe challenge -n cert-manager` | AccessDenied on Route 53 → see [CLAUDE.md bug catalog](CLAUDE.md) for the `aws iam put-role-policy` fix. |
+| Wildcard cert stuck `False` | `kubectl describe challenge -n cert-manager` | AccessDenied on Route 53 → see [TERRAFORM_NOTES.md § Troubleshooting](TERRAFORM_NOTES.md) for the `aws iam put-role-policy` fix. |
 | Browser hangs | `dig +short <host>` | DNS must resolve to EIP. If wrong, fix DNS first. |
 | `kubectl` refuses connection after EC2 reboot | `./scripts/cluster-resume.sh` | KIND node containers stopped. Resume restarts them + pins `--restart=unless-stopped`. |
 | Pod in `0/1 Running` for >2 min | `kubectl describe pod -n <ns> <pod>` then `kubectl logs ...` | `describe` shows probe failures and events; `logs` shows the app's own error. |
@@ -731,18 +732,22 @@ charts/
                            addons, Keycloak, graphrag supporting Secrets/Postgres)
   poolparty/              PoolParty sub-chart
   graphdb/                GraphDB sub-chart (installed twice via aliases)
-  addons/                 ADF, Semantic Workbench, GraphViews, RDF4J, UnifiedViews, Refine
+  addons/                 ADF, Semantic Workbench, GraphViews, RDF4J, UnifiedViews
   console/                Apex landing page
   poolparty-elasticsearch/ Elasticsearch for PoolParty
   keycloak-realms/        KeycloakRealmImport CRs + post-install Jobs
+  observability/          kube-prometheus-stack values (Prometheus + Grafana)
   vendor/graphrag*/       Vendored GraphRAG charts (separate Helm release)
 
 infra/
   kind/kind-config.yaml   Single-node KIND cluster definition (host port mappings,
                            extraMounts for staging-data)
-  terraform-subdomain/    Terraform module: EC2, SG, IAM role, EIP association,
-                           cloud-init bootstrap, AMI data source, EIP attachment
-    scripts/
+  refine-image/Dockerfile Builds a multi-arch Refine image from an operator-supplied
+                           distribution (see scripts/build-refine-image.sh)
+  terraform-aws/          AWS module: EC2, SG, IAM role, EIP association, cloud-init
+                           bootstrap, AMI data source. The default deployment path;
+                           internals documented in TERRAFORM_NOTES.md
+    scripts/              Laptop-side helpers (run on your machine, not the instance)
       check-prereqs.sh    macOS preflight: tools, AWS CLI identity, DNS, SSH key
       manage-stacks.sh    Add/list/remove GW stack SSH entries in ~/.zprofile as
                            sentinel-delimited blocks (GW_KEY_<name>, GW_HOST_<name>,
@@ -752,8 +757,13 @@ infra/
       pull-config.sh      Snapshot operator secrets + licenses + wildcard TLS cert
                            from live EC2 into a dated folder in the current directory
       push-config.sh      Restore a pull-config.sh snapshot to a freshly-provisioned EC2
+      aws-manage-inbound-ip.sh  Inventory and edit the admin /32 rules on every stack
+                           security group when your IP changes (dry-run by default)
+  terraform-azure/        Azure module: the same stack on an Azure VM instead of EC2.
+                           DNS and cert issuance still go through Route 53. Self-
+                           contained, with its own README.md covering the differences
 
-scripts/
+scripts/                  EC2/VM-side lifecycle scripts (run on the instance)
   cluster-bootstrap.sh    One-time: install ingress-nginx, cert-manager, CNPG,
                            Keycloak operator, metrics-server, Dashboard, kube-prometheus
   cluster-resume.sh       Restart KIND after EC2 stop/start (also invoked by systemd)
@@ -762,29 +772,36 @@ scripts/
   render-values.sh        Emit per-subdomain values YAML into ~/.graphwise-stack/
   reset-helm.sh           Wipe + reinstall both Helm releases
   deploy-stack.sh         Non-interactive chain: bootstrap → realm extract → licenses
-                           → preflight → reset-helm → validate (PSE kit builds)
+                           → preflight → reset-helm → validate
   install-licenses.sh     Create K8s Secrets from files/licenses/
   extract-poolparty-realm.sh   Pull PoolParty realm JSON from Keycloak image +
                                substitute Ontotext placeholder variables
   preflight-reset-helm.sh Read-only gate: tools, cluster, operators, DNS, IMDS,
                            maven registry auth
+  poolparty-extractor-guard.sh  Keep the PoolParty Extractor deployment healthy
   validate-bootstrap.sh   Post-bootstrap health check
   validate-stack.sh       Post-reset-helm health check (pods, certs, OIDC, HTTPS)
+  register-n8n-api-key.sh Register an n8n public-API key for workflow automation
   restore-workflows-dumpall.sh  Load workflow DB from newest (by mtime) $HOME/workflows*.sql
   create-workflows-dumpall.sh   Snapshot live workflow DB -> $HOME/workflows-pg-dumpall-<date>.sql
   check-image-versions.sh Check/upgrade image tags vs Docker Hub; --apply rolls the live stack
+  check-script-drift.sh   Fail if a script duplicated across infra/*/scripts/ trees
+                           has drifted between clouds
+  aws-retag-account.sh    Bulk-retag existing AWS resources to the module's tag scheme
   set-logo.sh             Base64-encode a PNG → gitignored console-branding.yaml
   build-refine-image.sh   Build multi-arch Refine image from an operator-supplied dist
 
 files/
   licenses/               Gitignored vendor license binaries (poolparty.key,
                            graphdb.license, uv-license.key)
-  refine/ontorefine-1.2.1/ Operator-supplied platform-independent Ontotext Refine
-                           dist (not shipped since 3.0.0; amd64-only upstream
-                           image, so arm64 hosts must obtain + extract their own)
-```
 
----
+refine/
+  ontorefine-<version>/   Operator-supplied Ontotext Refine distribution, gitignored.
+                           Not shipped since 3.0.0 — the upstream image is amd64-only,
+                           so an arm64 host must obtain and extract its own. Both
+                           cluster-bootstrap.sh and render-values.sh detect its
+                           absence and skip cleanly.
+```
 
 ## External user notes
 
@@ -836,7 +853,7 @@ Every operational script lives under `scripts/` and runs **on the EC2 host** (as
 ### Provisioning & deploy
 
 #### `deploy-stack.sh`
-The one-shot, non-interactive build for a brand-new stack — what the PSE kit's `terraform-deploy.sh` triggers. It chains, in order: `cluster-bootstrap.sh` → `extract-poolparty-realm.sh` (which itself chains `install-licenses.sh`) → `reset-helm.sh --yes` (umbrella first, then graphrag) → `restore-workflows-dumpall.sh`. Use this for a clean full build; reach for the individual scripts below only when troubleshooting a specific stage.
+The one-shot, non-interactive build for a brand-new stack. It chains, in order: `cluster-bootstrap.sh` → `extract-poolparty-realm.sh` (which itself chains `install-licenses.sh`) → `reset-helm.sh --yes` (umbrella first, then graphrag) → `restore-workflows-dumpall.sh`. Use this for a clean full build; reach for the individual scripts below only when troubleshooting a specific stage.
 
 #### `cluster-bootstrap.sh`
 "Phase B" — installs the cluster operators and prerequisites into the single-node KIND cluster that cloud-init created: ingress-nginx, cert-manager + the Let's Encrypt `ClusterIssuer`, CNPG, the Keycloak operator, metrics-server, the Kubernetes Dashboard, and kube-prometheus-stack. It also mints the wildcard `Certificate` and pre-loads the Refine + PoolParty-Keycloak images into KIND. Run once after the cluster is up and DNS points at the EIP — it does **not** block on DNS, but no `Certificate` goes Ready until DNS resolves. Prereq: `~/graphwise-secrets.yaml` with `maven.user`/`maven.pass`. Idempotent.

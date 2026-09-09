@@ -14,7 +14,7 @@
 # one CLI for the other. See README.md -> Why Route 53 stays.
 #
 # bash 3.2 compatible (macOS built-in bash). Note the ${arr[@]+"${arr[@]}"}
-# guard idiom used for arrays under `set -u` -- see CLAUDE.md.
+# guard idiom used for arrays under `set -u`.
 
 set -euo pipefail
 

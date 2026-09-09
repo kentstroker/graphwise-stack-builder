@@ -4,14 +4,15 @@
 
 This document covers how the Terraform module is structured, what each file does,
 and how `user-data.sh.tpl` bootstraps the EC2 instance. For the full step-by-step
-deploy walkthrough see [DEPLOYMENT_GUIDE.md](infra/terraform-subdomain/DEPLOYMENT_GUIDE.md);
-for the operator's concise deploy steps see [STACK-BUILDER.md](STACK-BUILDER.md).
+deploy walkthrough see [STACK-BUILDER.md](STACK-BUILDER.md) § Prerequisites and
+§ Provisioning and bootstrap. The Azure variant is documented separately in
+[infra/terraform-azure/README.md](infra/terraform-azure/README.md).
 
 ---
 
 ## What this module provisions
 
-`infra/terraform-<stack>/` is a self-contained Terraform module that creates five
+`infra/terraform-aws/` is a self-contained Terraform module that creates five
 AWS resources:
 
 | Resource | Details |
@@ -31,7 +32,7 @@ done by root/IAM-admin as a one-time human step).
 ## File map
 
 ```
-infra/terraform-<stack>/
+infra/terraform-aws/
 ├── versions.tf               Terraform + AWS provider version pins
 ├── variables.tf              All input variables with validation rules + defaults
 ├── main.tf                   SG, EC2, IAM role/profile, EIP logic
@@ -261,7 +262,7 @@ If empty, pick a different region or try `terraform init` to refresh the provide
 **`UnauthorizedOperation` on `RunInstances`**
 
 The `terraform-demo` IAM user is missing `ec2:RunInstances`. Attach `AmazonEC2FullAccess`
-(or the scoped custom policy from SETUP.md §4a) and retry.
+(or an equivalent scoped policy — see [STACK-BUILDER.md](STACK-BUILDER.md) § Prerequisites) and retry.
 
 **`terraform apply` wants to replace `aws_instance.stack` on AMI change**
 
@@ -292,5 +293,4 @@ so first error is final. Most common causes:
 any `Z[A-Z0-9]+` string including stale IDs. The IAM policy is created against the
 wrong zone ARN, so cert-manager's `ChangeResourceRecordSets` on the real zone fails.
 Immediate fix (no EC2 rebuild): `aws iam put-role-policy` with the corrected zone ARN.
-Then fix `terraform.tfvars` for consistency. See CLAUDE.md resolved bug catalog for
-the full diagnostic procedure.
+Then fix `terraform.tfvars` for consistency.

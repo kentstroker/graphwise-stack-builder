@@ -279,7 +279,8 @@ resource "aws_security_group" "stack" {
   # Stop managing ingress declaratively after first apply. Operators
   # routinely add a second port-22 rule manually (via the AWS Console)
   # to allow EC2 Instance Connect from AWS's service prefix list -- see
-  # SETUP.md §9 for the Console walkthrough. With inline `ingress` blocks
+  # STACK-BUILDER.md "App URLs and credentials" for the Console walkthrough.
+  # With inline `ingress` blocks
   # alone, Terraform would treat that manual rule as drift and delete
   # it on the next apply.
   #

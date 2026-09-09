@@ -10,7 +10,7 @@ Why this exists:
   vector index exists in ES; if it doesn't, the probe returns 503
   forever and the pod never goes Ready. We were creating the index
   by hand via `kubectl exec ... curl -XPUT` after every fresh deploy
-  (documented in CLAUDE.md "graphrag-components broken on startup");
+  (a known graphrag-components startup defect);
   now this Job does it automatically.
 
 What it creates:

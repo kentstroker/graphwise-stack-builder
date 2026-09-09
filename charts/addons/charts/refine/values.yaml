@@ -16,7 +16,7 @@ externalUrl: ""                         # https://refine.<sub>.<base>
 allowedCidrs: []
 
 # Display-only metadata surfaced on the console landing page and in
-# CONSOLE-GUIDE.md. Refine has no env var for default GraphDB URL —
+# STACK-BUILDER.md. Refine has no env var for default GraphDB URL --
 # the user pastes this into Refine's Settings → Connect to GraphDB
 # on first project. We never template a preferences.json over Refine's
 # own state file at /opt/ontorefine/data.

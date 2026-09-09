@@ -34,7 +34,7 @@ base_domain = "example.com"                  # CHANGEME -- no default; must be a
 # Route 53 hosted zone ID for base_domain. Get it once with:
 #   aws route53 list-hosted-zones --query 'HostedZones[?Name==`<base_domain>.`].Id' --output text | sed 's|/hostedzone/||'
 # The validation regex accepts any well-formed ID, including a WRONG one
-# from another account. Verify the value — see CLAUDE.md's write-up of the
+# from another account. Verify the value — see TERRAFORM_NOTES.md's write-up of the
 # wrong-zone-id failure (cert-manager AccessDenied, cert never issues).
 route53_zone_id = "CHANGEME"
 

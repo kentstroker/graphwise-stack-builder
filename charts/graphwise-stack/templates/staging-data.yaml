@@ -5,7 +5,7 @@ ingest landing pad to pods.
 
 Three-layer wiring (see HOWITWORKS §11):
   Layer 1 -- /home/ec2-user/staging-data on the EC2 host
-             (created by infra/terraform-<stack>/user-data.sh.tpl).
+             (created by infra/terraform-aws/user-data.sh.tpl).
   Layer 2 -- /staging-data inside the KIND control-plane container
              (mounted by infra/kind/kind-config.yaml extraMounts).
   Layer 3 -- this template -- one hostPath PV per namespace, plus
