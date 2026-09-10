@@ -38,21 +38,36 @@ cloud-init clone — you don't invoke them directly until you're SSHed in.
 
 ## 2. Getting the kit
 
-Clone the repo onto your laptop:
+`laptop-kit/` is a **template you copy out**, not a directory you work inside.
+Each stack you build gets its own copy, with its own `terraform.tfvars`. That is
+how you run more than one stack without them treading on each other.
+
+**Step 1 — get the repo.**
 
 ```bash
 git clone --depth 1 https://github.com/kentstroker/graphwise-stack-builder.git
 ```
 
-`--depth 1` matters here: a full clone pulls ~151 MB of history, a depth-1 clone
-is ~2 MB. You don't need the history to deploy. Drop the flag if you want it.
+`--depth 1` pulls ~2 MB instead of the ~151 MB a full clone with history costs.
+You don't need the history to deploy.
 
-The clone gives you both halves of the stack: `laptop-kit/`, which you run from
-here, and `charts/`, `scripts/` and `infra/kind/`, which you never run yourself —
-cloud-init pulls those onto the EC2 when it boots.
+**Step 2 — copy the kit to its own folder, named for the stack.**
 
-All commands below assume you're working from a checkout of this repo, in
-`laptop-kit/terraform-aws/`.
+```bash
+cp -R graphwise-stack-builder/laptop-kit ~/Desktop/terraform-acme
+cd ~/Desktop/terraform-acme/terraform-aws
+```
+
+Use whatever name identifies the stack — `terraform-acme`, `terraform-demo`. That
+folder is now yours: you edit `terraform.tfvars` there, you run `terraform` there,
+and it is where your licence files and secrets live. **Every command in the rest
+of this guide runs from that folder**, not from the clone.
+
+You can delete the clone afterwards if you want. Nothing in the rest of this guide
+reads from it — `charts/`, `scripts/` and `infra/kind/` never run on your laptop
+at all. Cloud-init clones them straight from GitHub onto the EC2 when it boots,
+which is why the branch you point at (§ [Configure](#5-configure)) matters and
+your local copy of them does not.
 
 ---
 
@@ -70,7 +85,8 @@ You'll need:
 Full IAM setup (the two-actor model, exact policies) is covered in
 [STACK-BUILDER.md § Prerequisites](STACK-BUILDER.md) — read that
 before your first deploy. Once your toolchain (Homebrew, AWS CLI, Terraform,
-`dig`, `jq`, …) is installed, verify it from `laptop-kit/terraform-aws/`:
+`dig`, `jq`, …) is installed, verify it from your stack folder
+(`~/Desktop/terraform-<name>/terraform-aws/`):
 
 ```bash
 ./scripts/check-prereqs.sh
@@ -107,7 +123,7 @@ can point at it:
 
 ## 5. Configure
 
-From `laptop-kit/terraform-aws/`:
+From your stack folder:
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
@@ -280,8 +296,8 @@ management, logo branding). The laptop-side entry points you'll reach for most:
 
 ## 11. Kit script reference
 
-All 8 scripts live in `laptop-kit/terraform-aws/scripts/` and run from
-`laptop-kit/terraform-aws/` on your laptop — not on the EC2.
+All 8 scripts live in your stack folder's `scripts/` subdirectory and run from
+your stack folder on your laptop — not on the EC2.
 
 | Script | What it does |
 |---|---|
