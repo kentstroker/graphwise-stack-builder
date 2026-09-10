@@ -243,29 +243,24 @@ and troubleshooting if a pod won't come up, see
 [STACK-BUILDER.md § What you get](STACK-BUILDER.md) and
 [STACK-BUILDER.md § App URLs and credentials](STACK-BUILDER.md).
 
-### First login: set the PoolParty superadmin password
+### First login
 
 Open Graph Modeling at `https://poolparty.<sub>.<base_domain>/PoolParty/` and
-log in with the factory credentials `superadmin` / `poolparty`. When prompted
-to change the password, set it to **exactly**:
+log in with the factory credentials `superadmin` / `poolparty`.
 
-```
-corgiDAD#2
-```
-
-This isn't optional and there's no safe substitute: the stack's extractor
-health-check (`poolparty-extractor-guard.sh`, which runs automatically after
-every EC2 stop/start) authenticates as `superadmin` with this exact password
-by default, and any workflow wiring you do later that calls the Extractor API
-assumes it too. Setting anything else breaks that wiring.
+Recent PoolParty releases accept the factory password and no longer force a
+change at first login, so you can leave it as is. If you do change it, change it
+everywhere that authenticates as `superadmin` — the extractor health-check
+(`poolparty-extractor-guard.sh`, which runs automatically after every EC2
+stop/start) and any workflow wiring that calls the Extractor API. Override the
+health-check with `PP_AUTH='superadmin:<your-password>'`.
 
 Wherever you need the basic-auth form of this credential (for example, an
 `EXTRACTOR_AUTH` header), derive it with base64 — never plain `echo`, since a
 trailing newline changes the encoding:
 
 ```bash
-printf 'superadmin/corgiDAD#2' | base64
-# → c3VwZXJhZG1pbi9jb3JnaURBRCMy
+printf 'superadmin/poolparty' | base64
 ```
 
 Note the separator is a slash (`/`), not the colon `curl -u` normally uses.
