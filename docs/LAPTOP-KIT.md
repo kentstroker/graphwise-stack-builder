@@ -38,20 +38,18 @@ cloud-init clone — you don't invoke them directly until you're SSHed in.
 
 ## 2. Getting the kit
 
-Two ways to get the repo onto your laptop:
+Clone the repo onto your laptop:
 
-- **Release asset** — download `laptop-kit-3.0.0.zip` from this repo's
-  [Releases](https://github.com/kentstroker/graphwise-stack-builder/releases)
-  page and unzip it. Smallest and simplest if you don't need git history.
-- **Shallow clone** — if you want the full repo (including the charts and
-  scripts that cloud-init pulls onto the EC2 for you):
+```bash
+git clone --depth 1 https://github.com/kentstroker/graphwise-stack-builder.git
+```
 
-  ```bash
-  git clone --depth 1 https://github.com/kentstroker/graphwise-stack-builder.git
-  ```
+`--depth 1` matters here: a full clone pulls ~151 MB of history, a depth-1 clone
+is ~2 MB. You don't need the history to deploy. Drop the flag if you want it.
 
-  `--depth 1` matters here: a full clone is ~151 MB of history, a depth-1 clone
-  is ~2 MB. You don't need the history to deploy.
+The clone gives you both halves of the stack: `laptop-kit/`, which you run from
+here, and `charts/`, `scripts/` and `infra/kind/`, which you never run yourself —
+cloud-init pulls those onto the EC2 when it boots.
 
 All commands below assume you're working from a checkout of this repo, in
 `laptop-kit/terraform-aws/`.
